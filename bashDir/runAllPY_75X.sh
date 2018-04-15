@@ -1,8 +1,7 @@
 #!/bin/bash
 
 outputStr="DEFAULT"
-numberEvt=100
-
+numberEvt=20
 
 if [ $# -ne 1 ]; 
 then
@@ -42,7 +41,9 @@ do
 
     sed -i -e "s:HiForestAOD.root:HiForestAOD_$typeStr\_$outputStr.root:g" $j
     sed -i -e "s:HiForestAOD_myTagger.root:HiForestAOD_$typeStr\_$outputStr.root:g" $j
-
+    sed -i -e "s:process.hltanalysis:#process.hltanalysis:g" $j
+    sed -i -e "s:process.hltobject:#process.hltobject:g" $j
+    
     echo "" >> $j
     echo "#BASH SCRIPT OVERRIDES" >> $j
     echo "process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32($numberEvt))" >> $j
