@@ -40,7 +40,8 @@ do
     typeStr=${typeStr#runForestAOD_}
     echo $typeStr
 
-    sed -i -e "s:HiForestAOD.root:HiForestAOD_$typeStr_$outputStr.root:g" $j
+    sed -i -e "s:HiForestAOD.root:HiForestAOD_$typeStr\_$outputStr.root:g" $j
+    sed -i -e "s:HiForestAOD_myTagger.root:HiForestAOD_$typeStr\_$outputStr.root:g" $j
 
     echo "" >> $j
     echo "#BASH SCRIPT OVERRIDES" >> $j
