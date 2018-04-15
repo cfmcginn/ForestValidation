@@ -277,26 +277,85 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
     treeTitle.replace(0, treeTitle.find("/")+1, "");
   }
   
-  (*fileTex) << "\\begin{frame}" << std::endl;
-  (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
-  (*fileTex) << "\\frametitle{\\centerline{" << treeTitle << "}}" << std::endl;
-  (*fileTex) << "\\begin{itemize}" << std::endl;
-  (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
-  (*fileTex) << "\\item{Tree Name \'" << texFriendlyString(inTreeName) << "\'}" << std::endl;
-  (*fileTex) << "\\item{Branches}" << std::endl;
-  (*fileTex) << "\\begin{itemize}" << std::endl;
-  (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
-  if(listOfBranches.size() != 0){
-    for(unsigned int vI = 0; vI < listOfBranches.size(); ++vI){
-      (*fileTex) << "\\item{Var " << vI << "/" << listOfBranches.size() << ": \'" << texFriendlyString(listOfBranches.at(vI)) << "\'}" << std::endl;
-    }
-  }
-  else (*fileTex) << "\\item{No branches!}" << std::endl;
-  (*fileTex) << "\\end{itemize}" << std::endl;
-  (*fileTex) << "\\end{itemize}" << std::endl;
-  (*fileTex) << "\\end{frame}" << std::endl;
+  int nBranches = 0;
+  std::vector<std::vector<std::string> > branchVect1, branchVect2, branchVect3;
 
-  (*fileTex) << std::endl;
+  for(unsigned int bI = 0; bI < listOfBranches.size(); ++bI){
+    if(bI%48 == 0){
+      branchVect1.push_back({});
+      branchVect2.push_back({});
+      branchVect3.push_back({});
+    }
+
+    if((bI/16)%3 == 0) branchVect1.at(branchVect1.size()-1).push_back(listOfBranches.at(bI));
+    else if((bI/16)%3 == 1) branchVect2.at(branchVect2.size()-1).push_back(listOfBranches.at(bI));
+    else if((bI/16)%3 == 2) branchVect3.at(branchVect3.size()-1).push_back(listOfBranches.at(bI));
+  }
+
+  for(unsigned int tempI = 0; tempI < branchVect1.size(); ++tempI){
+    (*fileTex) << "\\begin{frame}" << std::endl;
+    (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
+    (*fileTex) << "\\frametitle{\\centerline{" << treeTitle << "}}" << std::endl;
+    (*fileTex) << "\\begin{itemize}" << std::endl;
+    (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
+    (*fileTex) << "\\item{Tree Name \'" << texFriendlyString(inTreeName) << "\'}" << std::endl;
+    (*fileTex) << "\\item{Branches}" << std::endl;
+
+    (*fileTex) << "\\begin{columns}" << std::endl;
+    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+
+    (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
+    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\begin{itemize}" << std::endl;
+    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    if(branchVect1.at(tempI).size() != 0){
+
+      for(unsigned int vI = 0; vI < branchVect1.at(tempI).size(); ++vI){
+	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'" << texFriendlyString(branchVect1.at(tempI).at(vI)) << "\'}" << std::endl;
+	nBranches++;
+      }
+    }
+    else (*fileTex) << "\\item{Dummy}" << std::endl;
+    (*fileTex) << "\\end{itemize}" << std::endl;
+    (*fileTex) << "\\end{column}" << std::endl;
+
+    (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
+    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\begin{itemize}" << std::endl;
+    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    if(branchVect2.at(tempI).size() != 0){
+      
+      for(unsigned int vI = 0; vI < branchVect2.at(tempI).size(); ++vI){
+	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'" << texFriendlyString(branchVect2.at(tempI).at(vI)) << "\'}" << std::endl;
+	nBranches++;
+      }
+    }
+    else (*fileTex) << "\\item{Dummy}" << std::endl;
+    (*fileTex) << "\\end{itemize}" << std::endl;
+    (*fileTex) << "\\end{column}" << std::endl;
+
+    (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
+    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\begin{itemize}" << std::endl;
+    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    if(branchVect3.at(tempI).size() != 0){
+
+      for(unsigned int vI = 0; vI < branchVect3.at(tempI).size(); ++vI){
+	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'" << texFriendlyString(branchVect3.at(tempI).at(vI)) << "\'}" << std::endl;
+	nBranches++;
+      }
+    }
+    else (*fileTex) << "\\item{Dummy}" << std::endl;
+    (*fileTex) << "\\end{itemize}" << std::endl;
+    (*fileTex) << "\\end{column}" << std::endl;
+
+    (*fileTex) << "\\end{columns}" << std::endl;
+
+    (*fileTex) << "\\end{itemize}" << std::endl;
+    (*fileTex) << "\\end{frame}" << std::endl;
+    
+    (*fileTex) << std::endl;
+  }
 
   return;
 }
@@ -460,6 +519,11 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
       pads_p[1]->SetTopMargin(0.0);
       pads_p[1]->SetRightMargin(0.01);
       pads_p[1]->SetBottomMargin(pads_p[1]->GetLeftMargin()*3.);
+
+      if(TMath::Abs(minVal - maxVal) < 0.000000001){
+	minVal -= 1;
+	maxVal +=1;
+      }
 
       TH1D* tempHist1_p = new TH1D(histName1.c_str(), (";" + branchList1.at(bI1) + ";Counts").c_str(), 200, minVal, maxVal);
       tempHist1_p->SetMarkerSize(0.8);
