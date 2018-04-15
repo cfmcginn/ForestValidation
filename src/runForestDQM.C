@@ -162,7 +162,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::string inFileName1, std::strin
   (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
   if(goodTrees.size() != 0){
     for(unsigned int tI = 0; tI < goodTrees.size(); ++tI){
-      (*fileTex) << "  \\item{Tree " << tI << ": \'" << goodTrees.at(tI) << "\'}" << std::endl;
+      (*fileTex) << "  \\item{Tree " << tI << ": \'" << texFriendlyString(goodTrees.at(tI)) << "\'}" << std::endl;
     }
   }
   else (*fileTex) << "  \\item{WARNING: NO GOOD TREES}" << std::endl;
@@ -174,7 +174,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::string inFileName1, std::strin
   (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
   if(missingTrees1.size() != 0){
     for(unsigned int tI = 0; tI < missingTrees1.size(); ++tI){
-      (*fileTex) << "  \\item{Tree " << tI << ": \'" << missingTrees1.at(tI) << "\'}" << std::endl;
+      (*fileTex) << "  \\item{Tree " << tI << ": \'" << texFriendlyString(missingTrees1.at(tI)) << "\'}" << std::endl;
     }
   }
   else (*fileTex) << "  \\item{NO MISSING TREES}" << std::endl;
@@ -186,7 +186,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::string inFileName1, std::strin
   (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
   if(missingTrees2.size() != 0){
     for(unsigned int tI = 0; tI < missingTrees2.size(); ++tI){
-      (*fileTex) << "  \\item{Tree " << tI << ": \'" << missingTrees2.at(tI) << "\'}" << std::endl;
+      (*fileTex) << "  \\item{Tree " << tI << ": \'" << texFriendlyString(missingTrees2.at(tI)) << "\'}" << std::endl;
     }
   }
   else (*fileTex) << "  \\item{NO MISSING TREES}" << std::endl;
@@ -372,12 +372,14 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
   std::vector<std::string> misMatchedTrees2;
 
   std::string texFileName = inFileName1 + "_" + inFileName2;
-  while(texFileName.find("/") != std::string::npos){texFileName.replace(texFileName.find("/"), 1, "_");}
+  while(texFileName.find("/") != std::string::npos){texFileName.replace(0, texFileName.find("/")+1, "");}
   while(texFileName.find(".root") != std::string::npos){texFileName.replace(texFileName.find(".root"), 5, "_");}
   while(texFileName.substr(0,1).find("_") != std::string::npos){texFileName.replace(0,1,"");}
   while(texFileName.find("__") != std::string::npos){texFileName.replace(texFileName.find("__"),2,"_");}
 
+  std::cout << "File name 1: " << texFileName << std::endl;
   std::string texFileSubName = "pdfDir/" + texFileName + "VALIDATION_SUB_" + std::to_string(date.GetDate()) + ".tex";
+  std::cout << "File name 2: " << texFileSubName << std::endl;
   texFileName = "pdfDir/" + texFileName + "VALIDATION_MAIN_" + std::to_string(date.GetDate()) + ".tex";
   std::ofstream fileTex(texFileName.c_str());
   std::ofstream fileSubTex(texFileSubName.c_str());
@@ -392,8 +394,6 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
   std::vector<std::string> file2Trees = returnRootFileContentsList(inFile2_p, "TTree", "");
   removeVectorDuplicates(&file2Trees);
   dumpTreeNames(inFileName2, file2Trees);
-
-  file2Trees.push_back("Dummy");
 
   std::cout << "Checking tree strings match..." << std::endl;
   if(doStringsMatch(&file1Trees, &file2Trees, &misMatchedTrees1, &misMatchedTrees2)) std::cout << "All trees match between files!" << std::endl;

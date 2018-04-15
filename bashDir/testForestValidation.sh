@@ -15,4 +15,5 @@ do
     j=$j\_COPY.root
     cp $i $j
     ./bin/runForestDQM.exe $i $j
+    exit 1
 done
