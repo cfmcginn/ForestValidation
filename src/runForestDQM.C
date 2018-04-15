@@ -218,7 +218,7 @@ void doInterstitialTexSlide(std::ofstream* fileTex, const std::string interstiti
 
 void doTreeTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vector<std::string> listOfBadVar1, std::vector<std::string> listOfBadVar2, std::vector<std::string> warningList)
 {
-   std::string treeTitle = texFriendlyString(inTreeName);
+  std::string treeTitle = texFriendlyString(inTreeName);
   while(treeTitle.find("/") != std::string::npos){
     treeTitle.replace(0, treeTitle.find("/")+1, "");
   }
@@ -268,6 +268,39 @@ void doTreeTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vector<
 
   return;
 }
+
+
+void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vector<std::string> listOfBranches)
+{
+  std::string treeTitle = texFriendlyString(inTreeName);
+  while(treeTitle.find("/") != std::string::npos){
+    treeTitle.replace(0, treeTitle.find("/")+1, "");
+  }
+  
+  (*fileTex) << "\\begin{frame}" << std::endl;
+  (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
+  (*fileTex) << "\\frametitle{\\centerline{" << treeTitle << "}}" << std::endl;
+  (*fileTex) << "\\begin{itemize}" << std::endl;
+  (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
+  (*fileTex) << "\\item{Tree Name \'" << texFriendlyString(inTreeName) << "\'}" << std::endl;
+  (*fileTex) << "\\item{Branches}" << std::endl;
+  (*fileTex) << "\\begin{itemize}" << std::endl;
+  (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
+  if(listOfBranches.size() != 0){
+    for(unsigned int vI = 0; vI < listOfBranches.size(); ++vI){
+      (*fileTex) << "\\item{Var " << vI << "/" << listOfBranches.size() << ": \'" << texFriendlyString(listOfBranches.at(vI)) << "\'}" << std::endl;
+    }
+  }
+  else (*fileTex) << "\\item{No branches!}" << std::endl;
+  (*fileTex) << "\\end{itemize}" << std::endl;
+  (*fileTex) << "\\end{itemize}" << std::endl;
+  (*fileTex) << "\\end{frame}" << std::endl;
+
+  (*fileTex) << std::endl;
+
+  return;
+}
+
 
 void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string inBranchName, std::string inPdfName)
 {
@@ -552,6 +585,7 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
 
     doTreeTexSlide(&fileTex, file1Trees.at(tI), misMatchedBranches1, misMatchedBranches2, warningList);
     doTreeTexSlide(&fileSubTex, file1Trees.at(tI), misMatchedBranches1, misMatchedBranches2, warningList);
+    doBranchTexSlide(&fileSubTex, file1Trees.at(tI), branchList1);
     for(unsigned int bI1 = 0; bI1 < branchList1.size(); ++bI1){
       doPlotTexSlide(&fileSubTex, file1Trees.at(tI), branchList1.at(bI1), pdfList1.at(bI1));
     }

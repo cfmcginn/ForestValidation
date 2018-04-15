@@ -64,5 +64,5 @@ do
 
     mv run_$typeStr\_$outputStr.log outDir$outputStr
     mv $j outDir$outputStr
-    mv HiForestAOD*.root outDir$outputStr
+    mv HiForestAOD_$typeStr\_$outputStr.root outDir$outputStr
 done
