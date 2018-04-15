@@ -8,7 +8,7 @@ Dependencies: ROOT and gcc
 
 Built with ROOT version 6.10/09 and gcc 6.3.0
 
-If working with CMSSW, guarenteed to build with cmsenv in CMSSW_10_0_5
+If working with CMSSW, guaranteed to build with cmsenv in CMSSW_10_0_5, CMSSW_7_5_8_patch3
 
 To run, after build do:
 
