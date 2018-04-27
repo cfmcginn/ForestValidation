@@ -12,7 +12,7 @@ MKDIR_PDF=mkdir -p $(PWD)/pdfDir
 
 #programs to make
 
-all: mkdirBin mkdirPdf bin/runForestDQM.exe
+all: mkdirBin mkdirPdf bin/runForestDQM.exe bin/checkEventSync.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -20,6 +20,9 @@ mkdirPdf:
 	$(MKDIR_PDF)
 bin/runForestDQM.exe: src/runForestDQM.C
 	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/runForestDQM.exe src/runForestDQM.C
+
+bin/checkEventSync.exe: src/checkEventSync.C
+	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/checkEventSync.exe src/checkEventSync.C
 
 clean:
 	rm -f *~
