@@ -10,7 +10,15 @@
 
 int checkEventSync(const std::string inFileName)
 {
+  std::cout << "TESTING: " << mntToXRootdFileString(inFileName) << std::endl;
   TFile* inFile_p = TFile::Open(mntToXRootdFileString(inFileName).c_str(), "READ");
+
+  if(inFile_p->IsZombie()){
+    std::cout << "Open failed. return 1" << std::endl;
+    return 1;
+  }
+  else std::cout << "Successfully opened file \'" << mntToXRootdFileString(inFileName) << "\'" << std::endl;
+
   std::vector<std::string> fileTrees = returnRootFileContentsList(inFile_p, "TTree");
 
   unsigned int pos = 0;
