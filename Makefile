@@ -12,7 +12,7 @@ MKDIR_PDF=mkdir -p $(PWD)/pdfDir
 
 #programs to make
 
-all: mkdirBin mkdirPdf bin/runForestDQM.exe bin/checkEventSync.exe
+all: mkdirBin mkdirPdf bin/runForestDQM.exe bin/checkEventSync.exe bin/photonTreeCountCheck.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -23,6 +23,9 @@ bin/runForestDQM.exe: src/runForestDQM.C
 
 bin/checkEventSync.exe: src/checkEventSync.C
 	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/checkEventSync.exe src/checkEventSync.C
+
+bin/photonTreeCountCheck.exe: src/photonTreeCountCheck.C
+	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/photonTreeCountCheck.exe src/photonTreeCountCheck.C
 
 clean:
 	rm -f *~

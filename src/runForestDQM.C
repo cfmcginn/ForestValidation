@@ -9,6 +9,7 @@
 #include "TFile.h"
 #include "TTree.h"
 #include "TH1D.h"
+#include "TH1F.h"
 #include "TCanvas.h"
 #include "TObjArray.h"
 #include "TMath.h"
@@ -90,7 +91,7 @@ std::string texFriendlyString(std::string inStr)
   return outStr;
 }
 
-void doFirstTexSlide(std::ofstream* fileTex, std::string inFileName1, std::string inFileName2, std::vector<std::string> goodTrees, std::vector<std::string> missingTrees1, std::vector<std::string> missingTrees2, const Int_t eventCountOverride)
+void doFirstTexSlide(std::ofstream* fileTex, std::string inFileName1, std::string inFileName2, std::string inNickName1, std::string inNickName2, std::vector<std::string> goodTrees, std::vector<std::string> missingTrees1, std::vector<std::string> missingTrees2, const Int_t eventCountOverride)
 {
   TDatime date;
 
@@ -143,7 +144,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::string inFileName1, std::strin
   (*fileTex) << std::endl;
 
   (*fileTex) << "\\definecolor{links}{HTML}{00BFFF}" << std::endl;
-  (*fileTex) << "\\hypersetup{colorlinks,linkcolor=,urlcolor=links}" << std::endl;
+  (*fileTex) << "\\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=links}" << std::endl;
 
   (*fileTex) << std::endl;
 
@@ -152,26 +153,32 @@ void doFirstTexSlide(std::ofstream* fileTex, std::string inFileName1, std::strin
 
   (*fileTex) << std::endl;
 
+  std::string tempFileName1 = texInFileName1.substr(0, texInFileName1.size()/2) + "\n" + texInFileName1.substr(texInFileName1.size()/2, texInFileName1.size());
+  std::string tempFileName2 = texInFileName2.substr(0, texInFileName2.size()/2) + "\n" + texInFileName2.substr(texInFileName2.size()/2, texInFileName2.size());
+
   (*fileTex) << "\\begin{frame}" << std::endl;
-  (*fileTex) << "\\frametitle{\\centerline{Forest Validation (" << date.GetYear() << "." << date.GetMonth() << "." << date.GetDay() << ")}}" << std::endl;
+  (*fileTex) << "\\frametitle{\\centerline{\\hypertarget{TopLevel}{Forest Validation} (" << date.GetYear() << "." << date.GetMonth() << "." << date.GetDay() << ")}}" << std::endl;
   (*fileTex) << " \\begin{itemize}" << std::endl;
   (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
   if(eventCountOverride >= 0) (*fileTex) << " \\item{WARNING: EVENT NUMBER OVERRIDE SET, TEST INVALID}" << std::endl;
-  (*fileTex) << "  \\item{File 1: \'" << texInFileName1 << "\'}" << std::endl;
-  (*fileTex) << "  \\item{File 2: \'" << texInFileName2 << "\'}" << std::endl;
+  (*fileTex) << "  \\item{File 1: \'" << tempFileName1 << "\'}" << std::endl;
+  (*fileTex) << "  \\item{Nickname: \'" << texFriendlyString(inNickName1) << "\'}" << std::endl;
+
+  (*fileTex) << "  \\item{File 2: \'" << tempFileName2 << "\'}" << std::endl;
+  (*fileTex) << "  \\item{Nickname: \'" << texFriendlyString(inNickName2) << "\'}" << std::endl;
   (*fileTex) << "  \\item{Good Trees:}" << std::endl;
 
   (*fileTex) << " \\begin{itemize}" << std::endl;
   (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
   if(goodTrees.size() != 0){
     for(unsigned int tI = 0; tI < goodTrees.size(); ++tI){
-      (*fileTex) << "  \\item{Tree " << tI << ": \'" << texFriendlyString(goodTrees.at(tI)) << "\'}" << std::endl;
+      (*fileTex) << "  \\item{Tree " << tI << ": \'" << texFriendlyString(goodTrees.at(tI)) << "\',      \\hyperlink{tocSummary_" << goodTrees.at(tI) << "}{To Summary TOC},      \\hyperlink{tocFull_0_" << goodTrees.at(tI) << "}{To All Branch TOC}}" << std::endl;
     }
   }
   else (*fileTex) << "  \\item{WARNING: NO GOOD TREES}" << std::endl;
   (*fileTex) << " \\end{itemize}" << std::endl;
 
-  (*fileTex) << "  \\item{Bad File 1 Trees:}" << std::endl;
+  (*fileTex) << "  \\item{Bad File 1, " << texFriendlyString(inNickName1) << ", Trees:}" << std::endl;
 
   (*fileTex) << " \\begin{itemize}" << std::endl;
   (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
@@ -183,7 +190,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::string inFileName1, std::strin
   else (*fileTex) << "  \\item{NO MISSING TREES}" << std::endl;
   (*fileTex) << " \\end{itemize}" << std::endl;
 
-  (*fileTex) << "  \\item{Bad File 2 Trees:}" << std::endl;
+  (*fileTex) << "  \\item{Bad File 2, " << texFriendlyString(inNickName2) << ", Trees:}" << std::endl;
 
   (*fileTex) << " \\begin{itemize}" << std::endl;
   (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
@@ -219,19 +226,19 @@ void doInterstitialTexSlide(std::ofstream* fileTex, const std::string interstiti
 }
 
 
-void doTreeTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vector<std::string> listOfBadVar1, std::vector<std::string> listOfBadVar2, std::vector<std::string> warningList)
+void doTreeTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vector<std::string> listOfBadVar1, std::vector<std::string> listOfBadVar2, std::vector<std::string> warningList, std::vector<int> warningListPos)
 {
   std::string treeTitle = texFriendlyString(inTreeName);
   while(treeTitle.find("/") != std::string::npos){
-    treeTitle.replace(0, treeTitle.find("/")+1, "");
+    treeTitle.replace(treeTitle.find("/"), 1, " ");
   }
 
   (*fileTex) << "\\begin{frame}" << std::endl;
   (*fileTex) << "\\fontsize{5}{5}\\selectfont" << std::endl;
-  (*fileTex) << "\\frametitle{\\centerline{" << treeTitle << "}}" << std::endl;
+  (*fileTex) << "\\frametitle{\\centerline{\\hypertarget{tocSummary_" << inTreeName << "}{" << treeTitle << "}}}" << std::endl;
   (*fileTex) << "\\begin{itemize}" << std::endl;
   (*fileTex) << "\\fontsize{5}{5}\\selectfont" << std::endl;
-  (*fileTex) << "\\item{Tree Name \'" << texFriendlyString(inTreeName) << "\'}" << std::endl;
+  (*fileTex) << "\\item{Tree Name \'" << texFriendlyString(inTreeName) << "\'}, (\\hyperlink{Back to Top}{TopLevel})" << std::endl;
   (*fileTex) << "\\item{Missing variables in Tree 1}" << std::endl;
   (*fileTex) << "\\begin{itemize}" << std::endl;
   (*fileTex) << "\\fontsize{5}{5}\\selectfont" << std::endl;
@@ -254,18 +261,121 @@ void doTreeTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vector<
   (*fileTex) << "\\end{itemize}" << std::endl;
 
   (*fileTex) << "\\item{Variables deviating from 1 in ratio}" << std::endl;
-  (*fileTex) << "\\begin{itemize}" << std::endl;
-  (*fileTex) << "\\fontsize{5}{5}\\selectfont" << std::endl;
   if(warningList.size() != 0){
-    for(unsigned int vI = 0; vI < warningList.size(); ++vI){
-      (*fileTex) << "\\item{Var " << vI << "/" << warningList.size() << ": \'" << texFriendlyString(warningList.at(vI)) << "\'}" << std::endl;
+    std::vector<std::vector<std::string> > warning1, warning2, warning3;
+
+    int nBranches = 0;
+
+    for(unsigned int bI = 0; bI < warningList.size(); ++bI){
+
+      if(warning1.size() < 2){
+	if(bI%36 == 0){
+	  warning1.push_back({});
+	  warning2.push_back({});
+	  warning3.push_back({});
+	}
+	
+	if((bI/12)%3 == 0) warning1.at(warning1.size()-1).push_back(warningList.at(bI));
+	else if((bI/12)%3 == 1) warning2.at(warning2.size()-1).push_back(warningList.at(bI));
+	else if((bI/12)%3 == 2) warning3.at(warning3.size()-1).push_back(warningList.at(bI));
+      }
+      else{
+	if((bI-36)%48 == 0){
+	  warning1.push_back({});
+	  warning2.push_back({});
+	  warning3.push_back({});
+	}
+	
+	if(((bI-36)/16)%3 == 0) warning1.at(warning1.size()-1).push_back(warningList.at(bI));
+	else if(((bI-36)/16)%3 == 1) warning2.at(warning2.size()-1).push_back(warningList.at(bI));
+	else if(((bI-36)/16)%3 == 2) warning3.at(warning3.size()-1).push_back(warningList.at(bI));
+      }
+    }
+
+    for(unsigned int tempI = 0; tempI < warning1.size(); ++tempI){
+      if(tempI != 0){
+	(*fileTex) << "\\begin{frame}" << std::endl;
+	(*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
+	(*fileTex) << "\\frametitle{\\centerline{" << treeTitle << " (Continued)}}" << std::endl;
+	(*fileTex) << "\\begin{itemize}" << std::endl;
+	(*fileTex) << "\\fontsize{5}{5}\\selectfont" << std::endl;
+	(*fileTex) << "\\item{Tree Name \'" << texFriendlyString(inTreeName) << "\'}" << std::endl;
+	(*fileTex) << "\\item{Variables deviating from 1 in ratio}" << std::endl;
+      }
+
+      (*fileTex) << "\\begin{columns}" << std::endl;
+      (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+      
+      (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
+      (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+      (*fileTex) << "\\begin{itemize}" << std::endl;
+      (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+      if(warning1.at(tempI).size() != 0){
+	for(unsigned int vI = 0; vI < warning1.at(tempI).size(); ++vI){
+	  (*fileTex) << "\\item{Var " << nBranches << "/" << warningList.size() << ": \'\\hyperlink{branch_" << inTreeName << "_" << warningListPos.at(nBranches) << "}{" << texFriendlyString(warning1.at(tempI).at(vI)) << "}\'}" << std::endl;
+	  nBranches++;
+	}
+      }    
+      else (*fileTex) << "\\item{Dummy}" << std::endl;
+      (*fileTex) << "\\end{itemize}" << std::endl;
+      (*fileTex) << "\\end{column}" << std::endl;
+      
+      (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
+      (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+      (*fileTex) << "\\begin{itemize}" << std::endl;
+      (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+      if(warning2.at(tempI).size() != 0){
+	
+	for(unsigned int vI = 0; vI < warning2.at(tempI).size(); ++vI){
+	  (*fileTex) << "\\item{Var " << nBranches << "/" << warningList.size() << ": \'\\hyperlink{branch_" << inTreeName << "_" << warningListPos.at(nBranches) << "}{" << texFriendlyString(warning2.at(tempI).at(vI)) << "}\'}" << std::endl;
+	  //	(*fileTex) << "\\item{Var " << nBranches << "/" << warningList.size() << ": \'" << texFriendlyString(warning2.at(tempI).at(vI)) << "\'}" << std::endl;
+	  nBranches++;
+	}
+      }
+      else (*fileTex) << "\\item{Dummy}" << std::endl;
+      (*fileTex) << "\\end{itemize}" << std::endl;
+      (*fileTex) << "\\end{column}" << std::endl;
+      
+      (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
+      (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+      (*fileTex) << "\\begin{itemize}" << std::endl;
+      (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+      if(warning3.at(tempI).size() != 0){
+	
+	for(unsigned int vI = 0; vI < warning3.at(tempI).size(); ++vI){
+	  (*fileTex) << "\\item{Var " << nBranches << "/" << warningList.size() << ": \'\\hyperlink{branch_" << inTreeName << "_" << warningListPos.at(nBranches) << "}{" << texFriendlyString(warning3.at(tempI).at(vI)) << "}\'}" << std::endl;
+	  //	(*fileTex) << "\\item{Var " << nBranches << "/" << warningList.size() << ": \'" << texFriendlyString(branchVect3.at(tempI).at(vI)) << "\'}" << std::endl;
+	  nBranches++;
+	}
+      }
+      else (*fileTex) << "\\item{Dummy}" << std::endl;
+      (*fileTex) << "\\end{itemize}" << std::endl;
+      (*fileTex) << "\\end{column}" << std::endl;
+      
+      (*fileTex) << "\\end{columns}" << std::endl;
+
+      
+      (*fileTex) << "\\end{itemize}" << std::endl;
+      (*fileTex) << "\\end{frame}" << std::endl;
+    
+      (*fileTex) << std::endl;
     }
   }
+  else{
+    (*fileTex) << "\\item{No deviating variables}" << std::endl;
+    (*fileTex) << "\\end{itemize}" << std::endl;
+    (*fileTex) << "\\end{frame}" << std::endl;
+  }
+
+  /*
+    for(unsigned int vI = 0; vI < warningList.size(); ++vI){
+      (*fileTex) << "\\item{Var " << vI << "/" << warningList.size() << ": \'\\hyperlink{branch_" << inTreeName << "_" << warningListPos.at(vI) << "}{" << texFriendlyString(warningList.at(vI)) << "}\'}" << std::endl;
+    }
+  }
+ 
   else (*fileTex) << "\\item{No deviating variables}" << std::endl;
   (*fileTex) << "\\end{itemize}" << std::endl;
-
-  (*fileTex) << "\\end{itemize}" << std::endl;
-  (*fileTex) << "\\end{frame}" << std::endl;
+  */
 
   (*fileTex) << std::endl;
 
@@ -277,7 +387,7 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
 {
   std::string treeTitle = texFriendlyString(inTreeName);
   while(treeTitle.find("/") != std::string::npos){
-    treeTitle.replace(0, treeTitle.find("/")+1, "");
+    treeTitle.replace(treeTitle.find("/"), 1, " ");
   }
   
   int nBranches = 0;
@@ -298,10 +408,10 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
   for(unsigned int tempI = 0; tempI < branchVect1.size(); ++tempI){
     (*fileTex) << "\\begin{frame}" << std::endl;
     (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
-    (*fileTex) << "\\frametitle{\\centerline{" << treeTitle << "}}" << std::endl;
+    (*fileTex) << "\\frametitle{\\centerline{\\hypertarget{tocFull_" << tempI << "_" << inTreeName << "}{" << treeTitle << "}}}" << std::endl;
     (*fileTex) << "\\begin{itemize}" << std::endl;
     (*fileTex) << "\\fontsize{4}{4}\\selectfont" << std::endl;
-    (*fileTex) << "\\item{Tree Name \'" << texFriendlyString(inTreeName) << "\'}" << std::endl;
+    (*fileTex) << "\\item{Tree Name \'" << texFriendlyString(inTreeName) << "\', (\\hyperlink{Back to Top}{TopLevel})}" << std::endl;
     (*fileTex) << "\\item{Branches}" << std::endl;
 
     (*fileTex) << "\\begin{columns}" << std::endl;
@@ -314,7 +424,7 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
     if(branchVect1.at(tempI).size() != 0){
 
       for(unsigned int vI = 0; vI < branchVect1.at(tempI).size(); ++vI){
-	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'" << texFriendlyString(branchVect1.at(tempI).at(vI)) << "\'}" << std::endl;
+	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'\\hyperlink{branch_" << inTreeName << "_" << nBranches << "}{" << texFriendlyString(branchVect1.at(tempI).at(vI)) << "}\'}" << std::endl;
 	nBranches++;
       }
     }
@@ -329,7 +439,8 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
     if(branchVect2.at(tempI).size() != 0){
       
       for(unsigned int vI = 0; vI < branchVect2.at(tempI).size(); ++vI){
-	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'" << texFriendlyString(branchVect2.at(tempI).at(vI)) << "\'}" << std::endl;
+	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'\\hyperlink{branch_" << inTreeName << "_" << nBranches << "}{" << texFriendlyString(branchVect2.at(tempI).at(vI)) << "}\'}" << std::endl;
+	//	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'" << texFriendlyString(branchVect2.at(tempI).at(vI)) << "\'}" << std::endl;
 	nBranches++;
       }
     }
@@ -344,7 +455,8 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
     if(branchVect3.at(tempI).size() != 0){
 
       for(unsigned int vI = 0; vI < branchVect3.at(tempI).size(); ++vI){
-	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'" << texFriendlyString(branchVect3.at(tempI).at(vI)) << "\'}" << std::endl;
+	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'\\hyperlink{branch_" << inTreeName << "_" << nBranches << "}{" << texFriendlyString(branchVect3.at(tempI).at(vI)) << "}\'}" << std::endl;
+	//	(*fileTex) << "\\item{Var " << nBranches << "/" << listOfBranches.size() << ": \'" << texFriendlyString(branchVect3.at(tempI).at(vI)) << "\'}" << std::endl;
 	nBranches++;
       }
     }
@@ -364,16 +476,16 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
 }
 
 
-void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string inBranchName, std::string inPdfName)
+void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string inBranchName, int inBranchNum, std::string inPdfName)
 {
   std::string treeTitle = texFriendlyString(inTreeName);
   while(treeTitle.find("/") != std::string::npos){
-    treeTitle.replace(0, treeTitle.find("/")+1, "");
+    treeTitle.replace(treeTitle.find("/"), 1, " ");
   }
 
   (*fileTex) << "\\begin{frame}" << std::endl;
   (*fileTex) << "\\fontsize{5}{5}\\selectfont" << std::endl;
-  (*fileTex) << "\\frametitle{\\centerline{" << texFriendlyString(inBranchName) << "(" << treeTitle << ")}}" << std::endl;
+  (*fileTex) << "\\frametitle{\\centerline{\\hypertarget{branch_" << inTreeName << "_" << inBranchNum << "}{" << texFriendlyString(inBranchName) << "} (" << treeTitle << ")}}" << std::endl;
 
   (*fileTex) << "\\begin{center}" << std::endl;
   (*fileTex) << "\\includegraphics[width=0.6\\textwidth]{" << inPdfName << "}" << std::endl;
@@ -381,7 +493,7 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
 
   (*fileTex) << "\\begin{itemize}" << std::endl;
   (*fileTex) << "\\fontsize{5}{5}\\selectfont" << std::endl;
-  (*fileTex) << "\\item{" << texFriendlyString(inBranchName) << "}" << std::endl;
+  (*fileTex) << "\\item{" << texFriendlyString(inBranchName) << ", \\hyperlink{tocSummary_" << inTreeName << "}{To Summary TOC}, \\hyperlink{tocFull_0_" << inTreeName << "}{To All Branch TOC}}" << std::endl;
   (*fileTex) << "\\end{itemize}" << std::endl;
   (*fileTex) << "\\end{frame}" << std::endl;
 
@@ -391,7 +503,7 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
 }
 
 
-int runForestDQM(const std::string inFileName1, const std::string inFileName2, const std::string treeSelect = "", const Int_t eventCountOverride = -1)
+int runForestDQM(const std::string inFileName1, const std::string inFileName2, std::string inNickName1 = "", std::string inNickName2 = "", const std::string treeSelect = "", const Int_t eventCountOverride = -1)
 {
   if(inFileName1.find(".root") == std::string::npos || !checkFile(inFileName1)){
     std::cout << "Input \'" << inFileName1 << "\' is invalid return 1." << std::endl;
@@ -401,6 +513,9 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
     std::cout << "Input \'" << inFileName2 << "\' is invalid return 1." << std::endl;
     return 1;
   }
+
+  if(inNickName1.size() == 0) inNickName1 = "File1";
+  if(inNickName2.size() == 0) inNickName2 = "File2";
 
   Double_t minDeltaVal = 0.000000001;
   kirchnerPalette col;
@@ -430,8 +545,8 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
   leg_p->SetTextFont(43);
   leg_p->SetTextSize(12);
 
-  leg_p->AddEntry(dummyHist1_p, "File1", "P L");
-  leg_p->AddEntry(dummyHist2_p, "File2", "P L");
+  leg_p->AddEntry(dummyHist1_p, inNickName1.c_str(), "P L");
+  leg_p->AddEntry(dummyHist2_p, inNickName2.c_str(), "P L");
 
   std::vector<std::string> misMatchedTrees1;
   std::vector<std::string> misMatchedTrees2;
@@ -470,11 +585,11 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
   if(doStringsMatch(&file1Trees, &file2Trees, &misMatchedTrees1, &misMatchedTrees2)) std::cout << "All trees match between files!" << std::endl;
   else std::cout << "Mismatched trees found and removed..." << std::endl;
 
-  doFirstTexSlide(&fileTex, inFileName1, inFileName2, file1Trees, misMatchedTrees1, misMatchedTrees2, eventCountOverride);
+  doFirstTexSlide(&fileTex, inFileName1, inFileName2, inNickName1, inNickName2, file1Trees, misMatchedTrees1, misMatchedTrees2, eventCountOverride);
 
   std::vector<int>* intVect_p=NULL;
-  std::vector<int>* floatVect_p=NULL;
-  std::vector<int>* doubleVect_p=NULL;
+  std::vector<float>* floatVect_p=NULL;
+  std::vector<double>* doubleVect_p=NULL;
 
   for(unsigned int tI = 0; tI < file1Trees.size(); ++tI){
     std::cout << "Processing \'" << file1Trees.at(tI) << "\'..." << std::endl;
@@ -486,6 +601,8 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
     std::vector<std::string> leafList1;
     std::vector<std::string> pdfList1;
     std::vector<std::string> warningList;
+    std::vector<int> warningListPos;
+    
     for(Int_t bI1 = 0; bI1 < tempBranchList1->GetEntries(); ++bI1){
       branchList1.push_back(tempBranchList1->At(bI1)->GetName());
       leafList1.push_back(tempLeafList1->At(bI1)->GetName());
@@ -663,8 +780,8 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
 	}
       }
 
-      std::string histName1 = file1Trees.at(tI) + "_" + branchList1.at(bI1) + "_FirstFile_h";
-      std::string histName2 = file1Trees.at(tI) + "_" + branchList1.at(bI1) + "_SecondFile_h";
+      std::string histName1 = file1Trees.at(tI) + "_" + branchList1.at(bI1) + "_FirstFile_" + inNickName1 + "_h";
+      std::string histName2 = file1Trees.at(tI) + "_" + branchList1.at(bI1) + "_SecondFile_" + inNickName2 + "_h";
       while(histName1.find("/") != std::string::npos){histName1.replace(histName1.find("/"), 1, "_");}
       while(histName2.find("/") != std::string::npos){histName2.replace(histName2.find("/"), 1, "_");}
 
@@ -705,6 +822,30 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
       tree2_p->SetBranchStatus(branchList1.at(bI1).c_str(), 1);
 
       TH1D* tempHist1_p = new TH1D(histName1.c_str(), (";" + branchList1.at(bI1) + ";Counts").c_str(), 50, minVal, maxVal);
+      TH1D* tempHist2_p = new TH1D(histName2.c_str(), (";" + branchList1.at(bI1) + ";Counts").c_str(), 50, minVal, maxVal);
+
+
+      if(eventCountOverride < 0){
+	std::cout << branchList1.at(bI1) << " >> " << histName1 << "(50, " << std::to_string(minVal) << ", " << std::to_string(maxVal) << ")" << std::endl;
+	std::cout << branchList1.at(bI1) << " >> " << histName2 << "(50, " << std::to_string(minVal) << ", " << std::to_string(maxVal) << ")" << std::endl;
+
+	//	tree1_p->Draw((branchList1.at(bI1) + " >> " + histName1 + "(50, " + std::to_string(minVal) + ", " + std::to_string(maxVal) + ")").c_str(), "", "");
+	//	tree2_p->Draw((branchList1.at(bI1) + " >> " + histName2 + "(50, " + std::to_string(minVal) + ", " + std::to_string(maxVal) + ")").c_str(), "", "");
+
+	tree1_p->Project(histName1.c_str(), branchList1.at(bI1).c_str(), "", "");
+	tree2_p->Project(histName2.c_str(), branchList1.at(bI1).c_str(), "", "");
+      }
+      else{
+	tree1_p->Project(histName1.c_str(), branchList1.at(bI1).c_str(), "", "", eventCountOverride);
+	tree2_p->Project(histName2.c_str(), branchList1.at(bI1).c_str(), "", "", eventCountOverride);
+      }
+
+      std::cout << __LINE__ << std::endl;
+
+      //      TH1D* tempHist1_p = (TH1D*)gDirectory->Get(histName1.c_str());
+      tempHist1_p->GetXaxis()->SetTitle(branchList1.at(bI1).c_str());
+      tempHist1_p->GetYaxis()->SetTitle("Counts");
+
       tempHist1_p->SetMarkerSize(0.8);
       tempHist1_p->SetMarkerStyle(20);
       tempHist1_p->SetMarkerColor(col.getColor(2));
@@ -723,7 +864,11 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
       tempHist1_p->GetXaxis()->SetTitleOffset(tempHist1_p->GetXaxis()->GetTitleOffset()*4.);
       tempHist1_p->GetYaxis()->SetTitleOffset(tempHist1_p->GetXaxis()->GetTitleOffset()/3.);
 
-      TH1D* tempHist2_p = new TH1D(histName2.c_str(), (";" + branchList1.at(bI1) + ";Counts").c_str(), 50, minVal, maxVal);
+      std::cout << __LINE__ << std::endl;
+
+      //      TH1D* tempHist2_p = (TH1D*)gDirectory->Get(histName2.c_str());
+      tempHist2_p->GetXaxis()->SetTitle(branchList1.at(bI1).c_str());
+      tempHist2_p->GetYaxis()->SetTitle("Counts");
       tempHist2_p->SetMarkerSize(0.8);
       tempHist2_p->SetMarkerStyle(25);
       tempHist2_p->SetMarkerColor(col.getColor(0));
@@ -732,14 +877,13 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
       centerTitles({tempHist1_p, tempHist2_p});
       setSumW2({tempHist1_p, tempHist2_p});
 
-      if(eventCountOverride < 0){
-	tree1_p->Project(histName1.c_str(), branchList1.at(bI1).c_str(), "", "");
-	tree2_p->Project(histName2.c_str(), branchList1.at(bI1).c_str(), "", "");
+      std::cout << __LINE__ << std::endl;
+      if(branchList1.at(bI1).find("jtphi") != std::string::npos){
+	tempHist1_p->Print("ALL");
       }
-      else{
-	tree1_p->Project(histName1.c_str(), branchList1.at(bI1).c_str(), "", "", eventCountOverride);
-	tree2_p->Project(histName2.c_str(), branchList1.at(bI1).c_str(), "", "", eventCountOverride);
-      }
+
+      
+      std::cout << __LINE__ << std::endl;
 
       maxVal = tempHist1_p->GetMinimum();
       minVal = tempHist1_p->GetMaximum();
@@ -755,6 +899,9 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
 	}
       }
 
+
+      std::cout << __LINE__ << std::endl;
+
       Double_t interval = maxVal - minVal;
 
       if(interval > 1000 && minVal > 0){
@@ -767,6 +914,9 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
 	else minVal = 0;
       }
 
+
+      std::cout << __LINE__ << std::endl;
+
       tempHist1_p->SetMaximum(maxVal);
       tempHist1_p->SetMinimum(minVal);
 
@@ -778,6 +928,9 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
 
       leg_p->Draw("SAME");
 
+
+
+      std::cout << __LINE__ << std::endl;
       if(interval > 1000 && minVal > 0) gPad->SetLogy();
       gStyle->SetOptStat(0);
       gPad->RedrawAxis();
@@ -786,9 +939,15 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
       canv_p->cd();
       pads_p[1]->cd();
 
+
+      std::cout << __LINE__ << std::endl;
+
       tempHist1_p->Divide(tempHist2_p);
       bool isGood = true;
+      std::cout << __LINE__ << std::endl;
       for(Int_t bIX = 0; bIX < tempHist1_p->GetNbinsX(); ++bIX){
+	std::cout << __LINE__ << std::endl;
+
 	if(TMath::Abs(tempHist2_p->GetBinContent(bIX+1)) < minDeltaVal){
 	  if(TMath::Abs(tempHist1_p->GetBinContent(bIX+1)) < minDeltaVal) continue;
 	  else{
@@ -797,19 +956,28 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
 	  }
 	}
 
+	std::cout << __LINE__ << std::endl;
+
 	if(TMath::Abs(tempHist1_p->GetBinContent(bIX+1) - 1.) > minDeltaVal){
 	  isGood = false;
 	  break;
 	}
       }
+      std::cout << __LINE__ << std::endl;
 
-      if(!isGood) warningList.push_back(branchList1.at(bI1));
+      if(!isGood){
+	warningList.push_back(branchList1.at(bI1));
+	warningListPos.push_back(bI1);
+      }
+
+
+      std::cout << __LINE__ << std::endl;
 
       tempHist1_p->SetMarkerColor(1);
       tempHist1_p->SetLineColor(1);
-      tempHist1_p->GetYaxis()->SetTitle("File1/File2");
-      tempHist1_p->SetMaximum(1.3);
-      tempHist1_p->SetMinimum(0.7);
+      tempHist1_p->GetYaxis()->SetTitle((inNickName1 + "/" + inNickName2).c_str());
+      tempHist1_p->SetMaximum(TMath::Min(2., tempHist1_p->GetMaximum()));
+      //      tempHist1_p->SetMinimum(0.7);
       tempHist1_p->DrawCopy("E1 P");
       line.DrawLine(tempHist1_p->GetBinLowEdge(1), 1, tempHist1_p->GetBinLowEdge(201), 1);
       gPad->RedrawAxis();
@@ -819,18 +987,23 @@ int runForestDQM(const std::string inFileName1, const std::string inFileName2, c
       pdfList1.push_back(saveName);
       canv_p->SaveAs((fullDirName + saveName).c_str());
 
+      std::cout << __LINE__ << std::endl;
+
       delete tempHist1_p;
       delete tempHist2_p;
+
+      std::cout << __LINE__ << std::endl;
+
       delete pads_p[0];
       delete pads_p[1];
       delete canv_p;
     }
 
-    doTreeTexSlide(&fileTex, file1Trees.at(tI), misMatchedBranches1, misMatchedBranches2, warningList);
-    doTreeTexSlide(&fileSubTex, file1Trees.at(tI), misMatchedBranches1, misMatchedBranches2, warningList);
+    doTreeTexSlide(&fileTex, file1Trees.at(tI), misMatchedBranches1, misMatchedBranches2, warningList, warningListPos);
+    //    doTreeTexSlide(&fileSubTex, file1Trees.at(tI), misMatchedBranches1, misMatchedBranches2, warningList, warningListPos);
     doBranchTexSlide(&fileSubTex, file1Trees.at(tI), branchList1);
     for(unsigned int bI1 = 0; bI1 < branchList1.size(); ++bI1){
-      doPlotTexSlide(&fileSubTex, file1Trees.at(tI), branchList1.at(bI1), pdfList1.at(bI1));
+      doPlotTexSlide(&fileSubTex, file1Trees.at(tI), branchList1.at(bI1), bI1, pdfList1.at(bI1));
     }
   }
 
@@ -859,17 +1032,19 @@ int main(int argc, char* argv[])
   cppWatch watch;
   watch.start();
 
-  if(argc != 3 && argc != 4 && argc != 5){
-    std::cout << "Usage: ./bin/runForestDQM.exe <inFileName1> <inFileName2> <treeSelect> <eventCountOverride>" << std::endl;
+  if(argc < 3 || argc > 7){
+    std::cout << "Usage: ./bin/runForestDQM.exe <inFileName1> <inFileName2> <inNickName1> <inNickName2> <treeSelect> <eventCountOverride>" << std::endl;
     return 1;
   }
 
   int retVal = 0;
   if(argc == 3) retVal += runForestDQM(argv[1], argv[2]);
   else if(argc == 4) retVal += runForestDQM(argv[1], argv[2], argv[3]);
-  else if(argc == 5){
+  else if(argc == 5) retVal += runForestDQM(argv[1], argv[2], argv[3], argv[4]);
+  else if(argc == 6) retVal += runForestDQM(argv[1], argv[2], argv[3], argv[4], argv[5]);
+  else if(argc == 7){
     std::cout << "WARNING, EVENT COUNT OVERRIDE GIVEN, FOR TESTING ONLY, NOT VALID CHECK" << std::endl;
-    retVal += runForestDQM(argv[1], argv[2], argv[3], std::stoi(argv[4]));
+    retVal += runForestDQM(argv[1], argv[2], argv[3], argv[4], argv[5], std::stoi(argv[6 ]));
   }
 
   watch.stop();
