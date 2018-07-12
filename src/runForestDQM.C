@@ -786,8 +786,8 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	tempHist_p[fI]->GetXaxis()->SetTitle(branchList.at(0).at(bI1).c_str());
 	tempHist_p[fI]->GetYaxis()->SetTitle("Counts");
 	
-	tempHist_p[fI]->SetMarkerSize(0.8);
-	tempHist_p[fI]->SetMarkerStyle(20);
+	tempHist_p[fI]->SetMarkerSize(1.0);
+	tempHist_p[fI]->SetMarkerStyle(styles[fI]);
 	tempHist_p[fI]->SetMarkerColor(colors[fI]);
 	tempHist_p[fI]->SetLineColor(colors[fI]);
 	
