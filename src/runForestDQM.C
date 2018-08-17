@@ -547,6 +547,9 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
   }
   texFileName = texFileName + "_" + dateStr;
 
+  std::string texTreeStr = "AllTrees";
+  if(treeSelect.size() != 0) texTreeStr = treeSelect;
+
   std::string fullDirName = "pdfDir/" + dateStr + "/" + texFileName;
   while(fullDirName.substr(fullDirName.size()-1,1).find("_") != std::string::npos){fullDirName.replace(fullDirName.size()-1, 1, "");}
   fullDirName = fullDirName + "/";
@@ -554,9 +557,9 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
   std::cout << "File name 1: " << texFileName << std::endl;
   checkMakeDir(fullDirName.c_str());
 
-  std::string texFileSubName = fullDirName + texFileName + "VALIDATION_SUB_" + dateStr + ".tex";
+  std::string texFileSubName = fullDirName + texFileName + "VALIDATION_SUB_" + texTreeStr + "_" + dateStr + ".tex";
   std::cout << "File name 2: " << texFileSubName << std::endl;
-  texFileName = fullDirName + texFileName + "VALIDATION_MAIN_" + dateStr + ".tex";
+  texFileName = fullDirName + texFileName + "VALIDATION_MAIN_" + texTreeStr + "_" + dateStr + ".tex";
   std::ofstream fileTex(texFileName.c_str());
   std::ofstream fileSubTex(texFileSubName.c_str());
   doInterstitialTexSlide(&(fileSubTex), "PLOTS");
