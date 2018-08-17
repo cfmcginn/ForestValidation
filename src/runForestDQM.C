@@ -1,11 +1,13 @@
 ///AUTHOR: CFMCGINN (2018.04.12)
 ///For validating forest
+//cpp dependencies
 #include <iostream>
 #include <string>
 #include <vector>
 #include <fstream>
 #include <algorithm>
 
+//ROOT dependencies
 #include "TFile.h"
 #include "TTree.h"
 #include "TH1D.h"
@@ -20,12 +22,16 @@
 #include "TLegend.h"
 #include "TLeaf.h"
 
+//Local dependencies
 #include "include/checkMakeDir.h"
 #include "include/cppWatch.h"
-#include "include/returnRootFileContentsList.h"
-#include "include/removeVectorDuplicates.h"
-#include "include/kirchnerPalette.h"
+#include "include/getLinBins.h"
+#include "include/getLogBins.h"
 #include "include/histDefUtility.h"
+#include "include/kirchnerPalette.h"
+#include "include/plotUtilities.h"
+#include "include/removeVectorDuplicates.h"
+#include "include/returnRootFileContentsList.h"
 
 void dumpTreeNames(std::string fileName, std::vector<std::string> treeNames)
 {
@@ -485,7 +491,7 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
 }
 
 
-int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> inNickNames, const std::string treeSelect = "", const Int_t eventCountOverride = -1)
+int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> inNickNames, const std::string treeSelect = "", const Bool_t doEventNorm = false, const Int_t eventCountOverride = -1)
 {
   const Int_t nFiles = inFileNames.size();
   const Int_t fileCap = 4;
@@ -636,16 +642,37 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
     for(unsigned int bI1 = 0; bI1 < branchList.at(0).size(); ++bI1){
       std::cout << " Processing \'" << branchList.at(0).at(bI1) << "\'..." << std::endl;
 
+
+      tree_p[0]->ResetBranchAddresses();
+      tree_p[0]->SetBranchStatus("*", 0);
+      tree_p[0]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
+
       Double_t maxVal = tree_p[0]->GetMaximum(branchList.at(0).at(bI1).c_str());
       Double_t minVal = tree_p[0]->GetMinimum(branchList.at(0).at(bI1).c_str());
-
+ 
+      std::string maxValFile = inFileNames.at(0);
+      std::string minValFile = inFileNames.at(0);
+      
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	tree_p[fI]->ResetBranchAddresses();
 	tree_p[fI]->SetBranchStatus("*", 0);
 	tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 
-	maxVal = TMath::Max(maxVal, tree_p[fI]->GetMaximum(branchList.at(0).at(bI1).c_str()));
-	minVal = TMath::Min(minVal, tree_p[fI]->GetMinimum(branchList.at(0).at(bI1).c_str()));
+	Double_t tempMaxVal = tree_p[fI]->GetMaximum(branchList.at(0).at(bI1).c_str());
+	Double_t tempMinVal = tree_p[fI]->GetMinimum(branchList.at(0).at(bI1).c_str());
+
+	if(tempMaxVal > maxVal){
+	  maxVal = tempMaxVal;
+	  maxValFile = inFileNames.at(fI);
+	}
+
+	if(tempMinVal < minVal){
+	  minVal = tempMinVal;
+	  minValFile = inFileNames.at(fI);
+	}
+
+	//	maxVal = TMath::Max(maxVal, tree_p[fI]->GetMaximum(branchList.at(0).at(bI1).c_str()));
+	//	minVal = TMath::Min(minVal, tree_p[fI]->GetMinimum(branchList.at(0).at(bI1).c_str()));
       }
 
       TLeaf* tempLeaf = (TLeaf*)tree_p[0]->GetLeaf(leafList.at(0).at(bI1).c_str());
@@ -668,15 +695,35 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	    tree_p[fI]->GetEntry(0);
 	    
 	    auto maxMin = std::minmax_element(intVect_p->begin(), intVect_p->end());
-	    minVal = *(maxMin.first);
-	    maxVal = *(maxMin.second);
-	    
+	    if(fI == 0){
+	      minVal = *(maxMin.first);
+	      maxVal = *(maxMin.second);
+	      minValFile = inFileNames.at(fI);
+	      maxValFile = inFileNames.at(fI);
+	    }
+	    else{
+	      if(minVal > *(maxMin.first)){
+		minVal = *(maxMin.first);
+		minValFile = inFileNames.at(fI);
+	      }
+	      if(maxVal < *(maxMin.second)){
+		maxVal = *(maxMin.second);
+		maxValFile = inFileNames.at(fI);		
+	      }
+	    }
+
 	    for(Int_t entry = 1; entry < nEntries1; ++entry){
 	      tree_p[fI]->GetEntry(entry);
 	      
 	      auto maxMin = std::minmax_element(intVect_p->begin(), intVect_p->end());
-	      if(minVal > *(maxMin.first)) minVal = *(maxMin.first);
-	      if(maxVal < *(maxMin.second)) maxVal = *(maxMin.second);
+	      if(minVal > *(maxMin.first)){
+		minVal = *(maxMin.first);
+		minValFile = inFileNames.at(fI);
+	      }
+	      if(maxVal < *(maxMin.second)){
+		maxVal = *(maxMin.second);
+		maxValFile = inFileNames.at(fI);
+	      }
 	    }
 	  }
 	}
@@ -693,15 +740,37 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	    tree_p[fI]->GetEntry(0);
 	    
 	    auto maxMin = std::minmax_element(floatVect_p->begin(), floatVect_p->end());
-	    minVal = *(maxMin.first);
-	    maxVal = *(maxMin.second);
+
+	    if(fI == 0){
+	      minVal = *(maxMin.first);
+	      maxVal = *(maxMin.second);
+	      minValFile = inFileNames.at(fI);
+	      maxValFile = inFileNames.at(fI);
+	    }
+	    else{
+	      if(minVal > *(maxMin.first)){
+		minVal = *(maxMin.first);
+		minValFile = inFileNames.at(fI);
+	      }
+	      if(maxVal < *(maxMin.second)){
+		maxVal = *(maxMin.second);
+		maxValFile = inFileNames.at(fI);		
+	      }
+	    }
 
 	    for(Int_t entry = 1; entry < nEntries1; ++entry){
 	      tree_p[fI]->GetEntry(entry);
 	      
 	      auto maxMin = std::minmax_element(floatVect_p->begin(), floatVect_p->end());
-	      if(minVal > *(maxMin.first)) minVal = *(maxMin.first);
-	      if(maxVal < *(maxMin.second)) maxVal = *(maxMin.second);
+
+	      if(minVal > *(maxMin.first)){
+		minVal = *(maxMin.first);
+		minValFile = inFileNames.at(fI);
+	      }
+	      if(maxVal < *(maxMin.second)){
+		maxVal = *(maxMin.second);
+		maxValFile = inFileNames.at(fI);
+	      }
 	    }
 	  }
 	}
@@ -718,15 +787,36 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	    tree_p[fI]->GetEntry(0);
 	    
 	    auto maxMin = std::minmax_element(doubleVect_p->begin(), doubleVect_p->end());
-	    minVal = *(maxMin.first);
-	    maxVal = *(maxMin.second);
-	    
+
+	    if(fI == 0){
+	      minVal = *(maxMin.first);
+	      maxVal = *(maxMin.second);
+	      minValFile = inFileNames.at(fI);
+	      maxValFile = inFileNames.at(fI);
+	    }
+	    else{
+	      if(minVal > *(maxMin.first)){
+		minVal = *(maxMin.first);
+		minValFile = inFileNames.at(fI);
+	      }
+	      if(maxVal < *(maxMin.second)){
+		maxVal = *(maxMin.second);
+		maxValFile = inFileNames.at(fI);		
+	      }
+	    }
+
 	    for(Int_t entry = 1; entry < nEntries1; ++entry){
 	      tree_p[fI]->GetEntry(entry);
 	      
 	      auto maxMin = std::minmax_element(doubleVect_p->begin(), doubleVect_p->end());
-	      if(minVal > *(maxMin.first)) minVal = *(maxMin.first);
-	      if(maxVal < *(maxMin.second)) maxVal = *(maxMin.second);
+	      if(minVal > *(maxMin.first)){
+		minVal = *(maxMin.first);
+		minValFile = inFileNames.at(fI);
+	      }
+	      if(maxVal < *(maxMin.second)){
+		maxVal = *(maxMin.second);
+		maxValFile = inFileNames.at(fI);
+	      }
 	    }
 	  }	 
 	}
@@ -773,12 +863,23 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
       TH1D* tempHist_p[nFiles];
 
+      const Int_t nBins = 50;
+      Double_t bins[nBins+1];
+      bool doLogX = maxVal - minVal > 500 && minVal > 0;
+
+      //      std::cout << branchList.at(0).at(bI1) << ", " << maxVal << ", " << minVal << ", " << doLogX << std::endl;
+      //      std::cout << " maxValFile: " << maxValFile << std::endl;
+      //      std::cout << " minValFile: " << minValFile << std::endl;
+
+      if(doLogX) getLogBins(minVal, maxVal, nBins, bins);
+      else getLinBins(minVal, maxVal, nBins, bins);
+
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	tree_p[fI]->ResetBranchAddresses();
 	tree_p[fI]->SetBranchStatus("*", 0);
 	tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 
-	tempHist_p[fI] = new TH1D(histNames.at(fI).c_str(), (";" + branchList.at(0).at(bI1) + ";Counts").c_str(), 50, minVal, maxVal);
+	tempHist_p[fI] = new TH1D(histNames.at(fI).c_str(), (";" + branchList.at(0).at(bI1) + ";Counts").c_str(), nBins, bins);
 
 	if(eventCountOverride < 0) tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), "", "");
 	else tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), "", "", eventCountOverride);
@@ -806,6 +907,8 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
 	centerTitles(tempHist_p[fI]);
 	setSumW2(tempHist_p[fI]);
+
+	if(doEventNorm) tempHist_p[fI]->Scale(1./(Double_t)tree_p[fI]->GetEntries());
       }
 
       maxVal = tempHist_p[0]->GetMinimum();
@@ -847,6 +950,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
       leg_p->Draw("SAME");
 
       if(interval > 1000 && minVal > 0) gPad->SetLogy();
+      if(doLogX) gPad->SetLogx();
       gStyle->SetOptStat(0);
       gPad->RedrawAxis();
       gPad->SetTicks(0, 1);
@@ -885,8 +989,6 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	warningList.push_back(branchList.at(0).at(bI1));
 	warningListPos.push_back(bI1);
       }
-
-
     
       for(Int_t fI = 1; fI < nFiles; ++fI){
 	tempHist_p[fI]->GetYaxis()->SetTitle(("All/" + inNickNames.at(0)).c_str());
@@ -896,9 +998,12 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	else tempHist_p[fI]->DrawCopy("E1 P SAME");
       }
 
+      if(doLogX) gPad->SetLogx();
+
       line.DrawLine(tempHist_p[0]->GetBinLowEdge(1), 1, tempHist_p[0]->GetBinLowEdge(201), 1);
       gPad->RedrawAxis();
       gPad->SetTicks(0, 1);
+
 
       std::string saveName = histNames.at(0);
       for(Int_t fI = 1; fI < nFiles; ++fI){
@@ -906,7 +1011,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
       }
       saveName = saveName + "_" + dateStr + ".pdf";
       pdfList.push_back(saveName);
-      canv_p->SaveAs((fullDirName + saveName).c_str());
+      quietSaveAs(canv_p, fullDirName + saveName);
 
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	delete tempHist_p[fI];
@@ -948,8 +1053,8 @@ int main(int argc, char* argv[])
   cppWatch watch;
   watch.start();
 
-  if(argc < 2 || argc > 5){
-    std::cout << "Usage: ./bin/runForestDQM.exe <inFileNames> <inNickNames> <treeSelect> <eventCountOverride>" << std::endl;
+  if(argc < 2 || argc > 6){
+    std::cout << "Usage: ./bin/runForestDQM.exe <inFileNames> <inNickNames> <treeSelect> <doEventNorm> <eventCountOverride>" << std::endl;
     std::cout << " inFileNames, inNickNames a comma separated list of arbitrarily many files" << std::endl;
     return 1;
   }
@@ -987,9 +1092,10 @@ int main(int argc, char* argv[])
   int retVal = 0;
   if(argc == 2 || argc == 3) retVal += runForestDQM(inFiles, inNickNames);
   else if(argc == 4) retVal += runForestDQM(inFiles, inNickNames, argv[3]);
-  else if(argc == 5){
+  else if(argc == 5) retVal += runForestDQM(inFiles, inNickNames, argv[3], std::stoi(argv[4]));
+  else if(argc == 6){
     std::cout << "WARNING, EVENT COUNT OVERRIDE GIVEN, FOR TESTING ONLY, NOT VALID CHECK" << std::endl;
-    retVal += runForestDQM(inFiles, inNickNames, argv[3], std::stoi(argv[4]));
+    retVal += runForestDQM(inFiles, inNickNames, argv[3], std::stoi(argv[4]), std::stoi(argv[5]));
   }
 
   watch.stop();
