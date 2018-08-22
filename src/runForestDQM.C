@@ -685,6 +685,8 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
       if(tempClassType.find("vector") != std::string::npos && tempClassType.find("vector<vector") == std::string::npos){
 	std::cout << "Searching for vector max/min of branch \'" << branchList.at(0).at(bI1) << "\'" << std::endl;
 
+	bool isFirstFound = false;
+
 	if(tempClassType.find("int") != std::string::npos){
 	  std::cout << " Doing int search..." << std::endl;
 
@@ -693,31 +695,30 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	    tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 	    
 	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &intVect_p);
-	    
+
 	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
-	    tree_p[fI]->GetEntry(0);
 	    
-	    auto maxMin = std::minmax_element(intVect_p->begin(), intVect_p->end());
-	    if(fI == 0){
+	    int startPos = 0;
+	    while(!isFirstFound && startPos < nEntries1){
+	      tree_p[fI]->GetEntry(startPos);
+	      
+	      ++startPos;
+	      if(intVect_p->size() == 0) continue;
+
+	      isFirstFound = true;
+
+	      auto maxMin = std::minmax_element(intVect_p->begin(), intVect_p->end());
 	      minVal = *(maxMin.first);
 	      maxVal = *(maxMin.second);
 	      minValFile = inFileNames.at(fI);
 	      maxValFile = inFileNames.at(fI);
 	    }
-	    else{
-	      if(minVal > *(maxMin.first)){
-		minVal = *(maxMin.first);
-		minValFile = inFileNames.at(fI);
-	      }
-	      if(maxVal < *(maxMin.second)){
-		maxVal = *(maxMin.second);
-		maxValFile = inFileNames.at(fI);		
-	      }
-	    }
 
-	    for(Int_t entry = 1; entry < nEntries1; ++entry){
+	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
 	      tree_p[fI]->GetEntry(entry);
-	      
+
+	      if(intVect_p->size() == 0) continue;
+
 	      auto maxMin = std::minmax_element(intVect_p->begin(), intVect_p->end());
 	      if(minVal > *(maxMin.first)){
 		minVal = *(maxMin.first);
@@ -740,30 +741,28 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &floatVect_p);
 	    
 	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
-	    tree_p[fI]->GetEntry(0);
-	    
-	    auto maxMin = std::minmax_element(floatVect_p->begin(), floatVect_p->end());
 
-	    if(fI == 0){
+	    int startPos = 0;
+	    while(!isFirstFound && startPos < nEntries1){
+	      tree_p[fI]->GetEntry(startPos);
+	      
+	      ++startPos;
+	      if(floatVect_p->size() == 0) continue;
+
+	      isFirstFound = true;
+	      
+	      auto maxMin = std::minmax_element(floatVect_p->begin(), floatVect_p->end());
 	      minVal = *(maxMin.first);
 	      maxVal = *(maxMin.second);
 	      minValFile = inFileNames.at(fI);
 	      maxValFile = inFileNames.at(fI);
 	    }
-	    else{
-	      if(minVal > *(maxMin.first)){
-		minVal = *(maxMin.first);
-		minValFile = inFileNames.at(fI);
-	      }
-	      if(maxVal < *(maxMin.second)){
-		maxVal = *(maxMin.second);
-		maxValFile = inFileNames.at(fI);		
-	      }
-	    }
 
-	    for(Int_t entry = 1; entry < nEntries1; ++entry){
+	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
 	      tree_p[fI]->GetEntry(entry);
 	      
+	      if(floatVect_p->size() == 0) continue;
+
 	      auto maxMin = std::minmax_element(floatVect_p->begin(), floatVect_p->end());
 
 	      if(minVal > *(maxMin.first)){
@@ -787,29 +786,27 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &doubleVect_p);
 	    
 	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
-	    tree_p[fI]->GetEntry(0);
-	    
-	    auto maxMin = std::minmax_element(doubleVect_p->begin(), doubleVect_p->end());
 
-	    if(fI == 0){
+	    int startPos = 0;
+	    while(!isFirstFound && startPos < nEntries1){
+	      tree_p[fI]->GetEntry(startPos);
+	      
+	      ++startPos;
+	      if(doubleVect_p->size() == 0) continue;
+
+	      isFirstFound = true;
+	      
+	      auto maxMin = std::minmax_element(doubleVect_p->begin(), doubleVect_p->end());
 	      minVal = *(maxMin.first);
 	      maxVal = *(maxMin.second);
 	      minValFile = inFileNames.at(fI);
 	      maxValFile = inFileNames.at(fI);
 	    }
-	    else{
-	      if(minVal > *(maxMin.first)){
-		minVal = *(maxMin.first);
-		minValFile = inFileNames.at(fI);
-	      }
-	      if(maxVal < *(maxMin.second)){
-		maxVal = *(maxMin.second);
-		maxValFile = inFileNames.at(fI);		
-	      }
-	    }
 
-	    for(Int_t entry = 1; entry < nEntries1; ++entry){
+	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
 	      tree_p[fI]->GetEntry(entry);
+
+	      if(doubleVect_p->size() == 0) continue;
 	      
 	      auto maxMin = std::minmax_element(doubleVect_p->begin(), doubleVect_p->end());
 	      if(minVal > *(maxMin.first)){
@@ -828,7 +825,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	  return 1;
 	}
       }
-    
+
       std::vector<std::string> histNames;
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	std::string histName = fileTrees.at(0).at(tI) + "_" + branchList.at(0).at(bI1) + "_" + inNickNames.at(fI) + "_h";
