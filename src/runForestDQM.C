@@ -103,7 +103,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileName
 
   for(unsigned int fI = 0; fI < inFileNames.size(); ++fI){
     inFileNames.at(fI) = texFriendlyString(inFileNames.at(fI));
-    inFileNames.at(fI) = inFileNames.at(fI).substr(0, inFileNames.at(fI).size()/2) + "\n" + inFileNames.at(fI).substr(inFileNames.at(fI).size()/2, inFileNames.at(fI).size());
+    inFileNames.at(fI) = inFileNames.at(fI).substr(0, inFileNames.at(fI).size()/2) + "\\" + inFileNames.at(fI).substr(inFileNames.at(fI).size()/2, inFileNames.at(fI).size());
   }
 
   (*fileTex) << "\\RequirePackage{xspace}" << std::endl;
@@ -216,6 +216,7 @@ void doInterstitialTexSlide(std::ofstream* fileTex, const std::string interstiti
   (*fileTex) << "\\item{" << interstitialString << "}" << std::endl;
   (*fileTex) << "\\end{itemize}" << std::endl;
   (*fileTex) << "\\end{frame}" << std::endl;
+  (*fileTex) << std::endl;
 
   return;
 }
@@ -353,6 +354,7 @@ void doTreeTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vector<
     (*fileTex) << "\\item{No deviating variables}" << std::endl;
     (*fileTex) << "\\end{itemize}" << std::endl;
     (*fileTex) << "\\end{frame}" << std::endl;
+    (*fileTex) << std::endl;
   }
 
   /*
