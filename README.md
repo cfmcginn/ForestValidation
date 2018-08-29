@@ -17,3 +17,5 @@ To run, after build do:
 Output will be to directory "pdfDir", set of date-tagged pdf's and two tex files, main and plot file.
 
 Build tex with preferred method, with all corresponding pdf files in same directory. Will produce set of Tex slides for validation.
+
+Thanks to used bi-ran (https://www.github.com/bi-ran) for debugging and feedback.
