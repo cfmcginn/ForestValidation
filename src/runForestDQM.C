@@ -516,7 +516,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
   const std::string dateStr = std::to_string(date.GetDate());
 
   const Int_t colors[fileCap] = {1, col.getColor(2), col.getColor(0), col.getColor(3)};
-  const Int_t styles[fileCap] = {20, 21, 34, 33};
+  const Int_t styles[fileCap] = {20, 25, 28, 27};
 
   checkMakeDir("pdfDir");
   checkMakeDir(("pdfDir/" + dateStr).c_str());
