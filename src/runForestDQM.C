@@ -605,7 +605,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
     std::vector<int> warningListPos;       
 
     for(Int_t fI = 0; fI < nFiles; ++fI){
-      tree_p[fI] = (TTree*)inFiles_p[fI]->Get(fileTrees.at(fI).at(tI).c_str());
+      tree_p[fI] = (TTree*)inFiles_p[fI]->Get(fileTrees.at(0).at(tI).c_str());
       tempBranchList[fI] = (TObjArray*)tree_p[fI]->GetListOfBranches();
       tempLeafList[fI] = (TObjArray*)tree_p[fI]->GetListOfLeaves();
 
@@ -646,7 +646,6 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
   
     for(unsigned int bI1 = 0; bI1 < branchList.at(0).size(); ++bI1){
       std::cout << " Processing \'" << branchList.at(0).at(bI1) << "\'..." << std::endl;
-
 
       tree_p[0]->ResetBranchAddresses();
       tree_p[0]->SetBranchStatus("*", 0);
@@ -827,14 +826,14 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	  return 1;
 	}
       }
-
+   
       std::vector<std::string> histNames;
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	std::string histName = fileTrees.at(0).at(tI) + "_" + branchList.at(0).at(bI1) + "_" + inNickNames.at(fI) + "_h";
 	while(histName.find("/") != std::string::npos){histName.replace(histName.find("/"), 1, "_");}
 	histNames.push_back(histName);
       }
-
+    
       TCanvas* canv_p = new TCanvas("temp", "temp", 450, 400);
       canv_p->SetTopMargin(0.01);
       canv_p->SetRightMargin(0.01);
@@ -867,11 +866,21 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
       const Int_t nBins = 50;
       Double_t bins[nBins+1];
-      bool doLogX = maxVal - minVal > 500 && minVal > 0;
+      bool doLogX = maxVal - minVal > 100 && minVal > 0;
 
-      //      std::cout << branchList.at(0).at(bI1) << ", " << maxVal << ", " << minVal << ", " << doLogX << std::endl;
-      //      std::cout << " maxValFile: " << maxValFile << std::endl;
-      //      std::cout << " minValFile: " << minValFile << std::endl;
+      if(doLogX){
+	maxVal *= 2;
+	minVal /= 2;
+      }
+      else{
+	Double_t interval = maxVal - minVal;
+	maxVal += interval/10.;
+	minVal -= interval/10.;
+      }
+
+      std::cout << branchList.at(0).at(bI1) << ", " << maxVal << ", " << minVal << ", " << doLogX << std::endl;
+      std::cout << " maxValFile: " << maxValFile << std::endl;
+      std::cout << " minValFile: " << minValFile << std::endl;
 
       if(doLogX) getLogBins(minVal, maxVal, nBins, bins);
       else getLinBins(minVal, maxVal, nBins, bins);
@@ -900,9 +909,9 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	tempHist_p[fI]->GetYaxis()->SetLabelFont(43);
 	
 	tempHist_p[fI]->GetXaxis()->SetTitleSize(12);
-	tempHist_p[fI]->GetYaxis()->SetTitleSize(12);
+	tempHist_p[fI]->GetYaxis()->SetTitleSize(10);
 	tempHist_p[fI]->GetXaxis()->SetLabelSize(12);
-	tempHist_p[fI]->GetYaxis()->SetLabelSize(12);
+	tempHist_p[fI]->GetYaxis()->SetLabelSize(10);
 	
 	tempHist_p[fI]->GetXaxis()->SetTitleOffset(tempHist_p[fI]->GetXaxis()->GetTitleOffset()*4.);
 	tempHist_p[fI]->GetYaxis()->SetTitleOffset(tempHist_p[fI]->GetXaxis()->GetTitleOffset()/3.);
