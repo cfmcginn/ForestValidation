@@ -545,6 +545,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
   doFirstTexSlide(&fileTex, inFileNames, inNickNames, fileTrees.at(0), misMatchedTrees, eventCountOverride);
 
   std::vector<int>* intVect_p=NULL;
+  std::vector<short>* shortVect_p=NULL;
   std::vector<float>* floatVect_p=NULL;
   std::vector<double>* doubleVect_p=NULL;
 
@@ -678,6 +679,50 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	      if(intVect_p->size() == 0) continue;
 
 	      auto maxMin = std::minmax_element(intVect_p->begin(), intVect_p->end());
+	      if(minVal > *(maxMin.first)){
+		minVal = *(maxMin.first);
+		minValFile = inFileNames.at(fI);
+	      }
+	      if(maxVal < *(maxMin.second)){
+		maxVal = *(maxMin.second);
+		maxValFile = inFileNames.at(fI);
+	      }
+	    }
+	  }
+	}
+	else if(tempClassType.find("short") != std::string::npos){
+	  std::cout << " Doing short search..." << std::endl;
+
+	  for(Int_t fI = 0; fI < nFiles; ++fI){
+	    tree_p[fI]->SetBranchStatus("*", 0);
+	    tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
+	    
+	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &shortVect_p);
+
+	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    
+	    int startPos = 0;
+	    while(!isFirstFound && startPos < nEntries1){
+	      tree_p[fI]->GetEntry(startPos);
+	      
+	      ++startPos;
+	      if(shortVect_p->size() == 0) continue;
+
+	      isFirstFound = true;
+
+	      auto maxMin = std::minmax_element(shortVect_p->begin(), shortVect_p->end());
+	      minVal = *(maxMin.first);
+	      maxVal = *(maxMin.second);
+	      minValFile = inFileNames.at(fI);
+	      maxValFile = inFileNames.at(fI);
+	    }
+
+	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
+	      tree_p[fI]->GetEntry(entry);
+
+	      if(shortVect_p->size() == 0) continue;
+
+	      auto maxMin = std::minmax_element(shortVect_p->begin(), shortVect_p->end());
 	      if(minVal > *(maxMin.first)){
 		minVal = *(maxMin.first);
 		minValFile = inFileNames.at(fI);
