@@ -868,7 +868,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
       const Int_t nBins = 50;
       Double_t bins[nBins+1];
-      bool doLogX = maxVal - minVal > 100 && minVal > 0;
+      bool doLogX = maxVal - minVal > 300 && minVal > 0;
 
       if(doLogX){
 	maxVal *= 2;
