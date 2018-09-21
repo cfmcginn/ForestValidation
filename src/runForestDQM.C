@@ -232,7 +232,7 @@ void doTreeTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vector<
   std::vector<std::string> bigColumnVect;
 
   for(unsigned int fI = 0; fI < listOfBadVar.size(); ++fI){
-    bigColumnVect.push_back("\\fontsize{7}{7}\\selectfont \\bf{Missing variables from \'" + nickNames.at(fI) + "\' file:}");
+    bigColumnVect.push_back("\\fontsize{7}{7}\\selectfont \\bf{Missing variables from \'" + texFriendlyString(nickNames.at(fI)) + "\' file:}");
 
     if(listOfBadVar.at(fI).size() != 0){
       for(unsigned int vI = 0; vI < listOfBadVar.at(fI).size(); ++vI){
