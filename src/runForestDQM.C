@@ -33,6 +33,18 @@
 #include "include/removeVectorDuplicates.h"
 #include "include/returnRootFileContentsList.h"
 
+bool getDoLog(double minVal, double maxVal, int orderMag)
+{
+  if(minVal<=0) return false;
+  int order = 0;
+  while(minVal < maxVal){
+    minVal *= 10.;
+    order++;
+  }
+
+  return order > orderMag;
+}
+
 void dumpTreeNames(std::string fileName, std::vector<std::string> treeNames)
 {
   std::cout << "TTrees In File \'" << fileName << "\':" << std::endl;
@@ -156,7 +168,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileName
 
   (*fileTex) << std::endl;
 
-  (*fileTex) << "\\author[CM]{CMSHI Forest Validatory}" << std::endl;
+  (*fileTex) << "\\author[CM]{CMSHI Forest Validator}" << std::endl;
   (*fileTex) << "\\begin{document}" << std::endl;
 
   (*fileTex) << std::endl;
@@ -452,7 +464,7 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
 int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> inNickNames, const std::string treeSelect = "", const Bool_t doEventNorm = false, const Int_t eventCountOverride = -1)
 {
   const Int_t nFiles = inFileNames.size();
-  const Int_t fileCap = 4;
+  const Int_t fileCap = 8;
   if(nFiles > fileCap){
     std::cout << "Number of files given, " << nFiles << ", is greater than file cap, " << fileCap << ", for this macro. return 1" << std::endl;
     return 1;
@@ -471,8 +483,8 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
   TDatime date;
   const std::string dateStr = std::to_string(date.GetDate());
 
-  const Int_t colors[fileCap] = {1, col.getColor(2), col.getColor(0), col.getColor(3)};
-  const Int_t styles[fileCap] = {20, 25, 28, 27};
+  const Int_t colors[fileCap] = {1, col.getColor(2), col.getColor(0), col.getColor(3), col.getColor(2), col.getColor(0), col.getColor(3), col.getColor(2)};
+  const Int_t styles[fileCap] = {20, 25, 28, 27, 46, 24, 42, 44};
 
   checkMakeDir("pdfDir");
   checkMakeDir(("pdfDir/" + dateStr).c_str());
@@ -868,7 +880,9 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
       const Int_t nBins = 50;
       Double_t bins[nBins+1];
-      bool doLogX = maxVal - minVal > 300 && minVal > 0;
+      //      bool doLogX = maxVal - minVal > 300 && minVal > 0;
+
+      bool doLogX = getDoLog(minVal, maxVal, 2);
 
       if(doLogX){
 	maxVal *= 2;
@@ -962,7 +976,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
       leg_p->Draw("SAME");
 
-      if(interval > 1000 && minVal > 0) gPad->SetLogy();
+      if(getDoLog(minVal, maxVal, 2)) gPad->SetLogy();
       if(doLogX) gPad->SetLogx();
       gStyle->SetOptStat(0);
       gPad->RedrawAxis();
