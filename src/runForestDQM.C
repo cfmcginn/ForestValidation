@@ -32,6 +32,7 @@
 #include "include/plotUtilities.h"
 #include "include/removeVectorDuplicates.h"
 #include "include/returnRootFileContentsList.h"
+#include "include/stringUtil.h"
 
 bool getDoLog(double minVal, double maxVal, int orderMag)
 {
@@ -575,19 +576,55 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
     for(Int_t fI = 0; fI < nFiles; ++fI){
       tree_p[fI] = (TTree*)inFiles_p[fI]->Get(fileTrees.at(0).at(tI).c_str());
-      tempBranchList[fI] = (TObjArray*)tree_p[fI]->GetListOfBranches();
-      tempLeafList[fI] = (TObjArray*)tree_p[fI]->GetListOfLeaves();
+      tempBranchList[fI] = (TObjArray*)(tree_p[fI]->GetListOfBranches()->Clone());
+      tempLeafList[fI] = (TObjArray*)(tree_p[fI]->GetListOfLeaves()->Clone());
+
+      std::vector<std::string> uncleanedBranches;
+      std::vector<std::string> uncleanedLeaves;
+
+      for(Int_t tempI = 0; tempI < tempBranchList[fI]->GetEntries(); ++tempI){
+	uncleanedBranches.push_back(tempBranchList[fI]->At(tempI)->GetName());
+      }
+      for(Int_t tempI = 0; tempI < tempLeafList[fI]->GetEntries(); ++tempI){
+	uncleanedLeaves.push_back(tempLeafList[fI]->At(tempI)->GetName());
+      }
+
+      unsigned int tempPos = 0;
+      while(tempPos < uncleanedBranches.size()){
+	TBranch* tempBranch = (TBranch*)tree_p[fI]->GetBranch(uncleanedBranches.at(tempPos).c_str());
+
+	if(tempBranch->GetListOfBranches()->GetEntries() != 0){
+	  std::cout << "WARNING: Branch \'" << tempBranch->GetName() << "\' in TTree \'" << fileTrees.at(0).at(tI) << "\' has nSubBranch = " << tempBranch->GetListOfBranches()->GetEntries() << " not equal to 0. runForestDQM.exe cannot handle this branch, will be removed" << std::endl;
+	  
+	  for(Int_t rbI = 0; rbI < tempBranch->GetListOfBranches()->GetEntries()+1; ++rbI){
+	    std::cout << "Removing \'" << uncleanedLeaves.at(tempPos) << "\' from leaflist at " << tempPos << std::endl;
+	    uncleanedLeaves.erase(uncleanedLeaves.begin()+tempPos);
+	  }
+	  uncleanedBranches.erase(uncleanedBranches.begin()+tempPos);
+	}
+	else tempPos++;
+      }
+    
+      if(uncleanedBranches.size() != uncleanedLeaves.size()){
+	std::cout << "WARNING: branchList in TTree \'" << fileTrees.at(0).at(tI) << "\' has nBranches = " << uncleanedBranches.size() << " after cleaning, differing from nLeaves = " << uncleanedLeaves.size() << "." << std::endl;
+      }
 
       branchList.push_back({});
       leafList.push_back({});
-      
-      for(Int_t bI1 = 0; bI1 < tempBranchList[fI]->GetEntries(); ++bI1){
-	branchList.at(fI).push_back(tempBranchList[fI]->At(bI1)->GetName());
-	leafList.at(fI).push_back(tempLeafList[fI]->At(bI1)->GetName());
+
+      for(unsigned int bI1 = 0; bI1 < uncleanedBranches.size(); ++bI1){
+	std::string branchName = uncleanedBranches.at(bI1);
+	std::string leafName = uncleanedLeaves.at(bI1);
+
+	if(!isStrSame(branchName, leafName)){
+	  std::cout << "WARNING: Branch \'" << branchName << "\' differs from matched lea  \'" << leafName << "\'." << std::endl;
+	}
+
+	branchList.at(fI).push_back(branchName);
+	leafList.at(fI).push_back(leafName);
       }
     }
 
-    std::cout << "Ok we process " << branchList.at(0).size() << " branches..." << std::endl;
     for(unsigned int bI = 0; bI < branchList.at(0).size(); ++bI){
       std::cout << " " << bI << "/" << branchList.at(0).size() << ": " << branchList.at(0).at(bI) << std::endl;
     }
@@ -612,8 +649,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	else std::cout << "Mismatched leaves found and removed..." << std::endl;
       }
     }
-
-  
+      
     for(unsigned int bI1 = 0; bI1 < branchList.at(0).size(); ++bI1){
       std::cout << " Processing \'" << branchList.at(0).at(bI1) << "\'..." << std::endl;
 
@@ -651,7 +687,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
       TLeaf* tempLeaf = (TLeaf*)tree_p[0]->GetLeaf(leafList.at(0).at(bI1).c_str());
       std::string tempClassType = tempLeaf->GetTypeName();
-    
+      
       //We have to handle vectors differently, getMax and getMin do not work from ttree
       if(tempClassType.find("vector") != std::string::npos && tempClassType.find("vector<vector") == std::string::npos){
 	std::cout << "Searching for vector max/min of branch \'" << branchList.at(0).at(bI1) << "\'" << std::endl;
