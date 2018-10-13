@@ -462,8 +462,13 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
 }
 
 
-int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> inNickNames, const std::string treeSelect = "", const Bool_t doEventNorm = false, const Int_t eventCountOverride = -1)
+int runForestDQM(std::vector<std::string> inFileNames, const std::string additionalNickName, std::vector<std::string> inNickNames, const std::string treeSelect = "", const Bool_t doEventNorm = false, const Int_t eventCountOverride = -1)
 {
+  std::string globalYStrTemp = "Counts";
+  if(doEventNorm) globalYStrTemp = "#frac{1}{N_{evt}} Counts";
+
+  const std::string globalYStr = globalYStrTemp;
+
   const Int_t nFiles = inFileNames.size();
   const Int_t fileCap = 8;
   if(nFiles > fileCap){
@@ -512,7 +517,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 
   std::vector<std::vector<std::string > > misMatchedTrees;
 
-  std::string texFileName = "forestDQM";
+  std::string texFileName = "forestDQM_" + additionalNickName;
   for(Int_t fI = 0; fI < nFiles; ++fI){
     texFileName = texFileName + "_" + inNickNames.at(fI);
   }
@@ -534,6 +539,7 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
   std::ofstream fileTex(texFileName.c_str());
   std::ofstream fileSubTex(texFileSubName.c_str());
   doInterstitialTexSlide(&(fileSubTex), "PLOTS");
+
 
   TFile* inFiles_p[nFiles];
   std::vector<std::vector<std::string > > fileTrees;
@@ -942,13 +948,13 @@ int runForestDQM(std::vector<std::string> inFileNames, std::vector<std::string> 
 	tree_p[fI]->SetBranchStatus("*", 0);
 	tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 
-	tempHist_p[fI] = new TH1D(histNames.at(fI).c_str(), (";" + branchList.at(0).at(bI1) + ";Counts").c_str(), nBins, bins);
+	tempHist_p[fI] = new TH1D(histNames.at(fI).c_str(), (";" + branchList.at(0).at(bI1) + ";" + globalYStr).c_str(), nBins, bins);
 
 	if(eventCountOverride < 0) tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), "", "");
 	else tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), "", "", eventCountOverride);
 
 	tempHist_p[fI]->GetXaxis()->SetTitle(branchList.at(0).at(bI1).c_str());
-	tempHist_p[fI]->GetYaxis()->SetTitle("Counts");
+	tempHist_p[fI]->GetYaxis()->SetTitle(globalYStr.c_str());
 	
 	tempHist_p[fI]->SetMarkerSize(1.0);
 	tempHist_p[fI]->SetMarkerStyle(styles[fI]);
@@ -1116,8 +1122,8 @@ int main(int argc, char* argv[])
   cppWatch watch;
   watch.start();
 
-  if(argc < 2 || argc > 6){
-    std::cout << "Usage: ./bin/runForestDQM.exe <inFileNames> <inNickNames> <treeSelect> <doEventNorm> <eventCountOverride>" << std::endl;
+  if(argc < 3 || argc > 7){
+    std::cout << "Usage: ./bin/runForestDQM.exe <inFileNames> <additionalNickName> <inNickNames> <treeSelect> <doEventNorm> <eventCountOverride>" << std::endl;
     std::cout << " inFileNames, inNickNames a comma separated list of arbitrarily many files" << std::endl;
     return 1;
   }
@@ -1132,14 +1138,14 @@ int main(int argc, char* argv[])
 
   std::vector<std::string> inNickNames;
 
-  if(argc >= 3){
-    std::string argv2 = argv[2];
-    while(argv2.find(",") != std::string::npos){
-      if(argv2.substr(0, argv2.find(",")).size() == 0) inNickNames.push_back("");
-      else inNickNames.push_back(argv2.substr(0, argv2.find(",")));
-      argv2.replace(0, argv2.find(",")+1, "");
+  if(argc >= 4){
+    std::string argv3 = argv[3];
+    while(argv3.find(",") != std::string::npos){
+      if(argv3.substr(0, argv3.find(",")).size() == 0) inNickNames.push_back("");
+      else inNickNames.push_back(argv3.substr(0, argv3.find(",")));
+      argv3.replace(0, argv3.find(",")+1, "");
     }
-    if(argv2.size() != 0) inNickNames.push_back(argv2);
+    if(argv3.size() != 0) inNickNames.push_back(argv3);
   }
   else{
     for(unsigned int fI = 0; fI < inFiles.size(); ++fI){
@@ -1153,12 +1159,12 @@ int main(int argc, char* argv[])
   }
 
   int retVal = 0;
-  if(argc == 2 || argc == 3) retVal += runForestDQM(inFiles, inNickNames);
-  else if(argc == 4) retVal += runForestDQM(inFiles, inNickNames, argv[3]);
-  else if(argc == 5) retVal += runForestDQM(inFiles, inNickNames, argv[3], std::stoi(argv[4]));
-  else if(argc == 6){
+  if(argc == 3 || argc == 4) retVal += runForestDQM(inFiles, argv[2], inNickNames);
+  else if(argc == 5) retVal += runForestDQM(inFiles, argv[2], inNickNames, argv[4]);
+  else if(argc == 6) retVal += runForestDQM(inFiles, argv[2], inNickNames, argv[4], std::stoi(argv[5]));
+  else if(argc == 7){
     std::cout << "WARNING, EVENT COUNT OVERRIDE GIVEN, FOR TESTING ONLY, NOT VALID CHECK" << std::endl;
-    retVal += runForestDQM(inFiles, inNickNames, argv[3], std::stoi(argv[4]), std::stoi(argv[5]));
+    retVal += runForestDQM(inFiles, argv[2], inNickNames, argv[4], std::stoi(argv[5]), std::stoi(argv[6]));
   }
 
   watch.stop();

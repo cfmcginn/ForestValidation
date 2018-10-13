@@ -12,7 +12,7 @@ MKDIR_PDF=mkdir -p $(PWD)/pdfDir
 
 #programs to make
 
-all: mkdirBin mkdirPdf bin/runForestDQM.exe bin/checkEventSync.exe bin/checkAllTreesReadable.exe bin/checkForestEventSelection.exe bin/photonTreeCountCheck.exe
+all: mkdirBin mkdirPdf bin/runForestDQM.exe bin/checkEventSync.exe bin/checkAllTreesReadable.exe bin/checkForestEventSelection.exe bin/photonTreeCountCheck.exe bin/checkDuplicateEvents.exe bin/duplicateRemoval.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -32,6 +32,12 @@ bin/checkForestEventSelection.exe: src/checkForestEventSelection.C
 
 bin/photonTreeCountCheck.exe: src/photonTreeCountCheck.C
 	$(CXX) $(CXXFLAGS) src/photonTreeCountCheck.C $(ROOT) -I $(PWD) -o bin/photonTreeCountCheck.exe
+
+bin/checkDuplicateEvents.exe: src/checkDuplicateEvents.C
+	$(CXX) $(CXXFLAGS) src/checkDuplicateEvents.C $(ROOT) -I $(PWD) -o bin/checkDuplicateEvents.exe
+
+bin/duplicateRemoval.exe: src/duplicateRemoval.C
+	$(CXX) $(CXXFLAGS) src/duplicateRemoval.C $(ROOT) -I $(PWD) -o bin/duplicateRemoval.exe
 
 clean:
 	rm -f *~
