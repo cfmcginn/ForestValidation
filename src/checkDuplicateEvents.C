@@ -37,13 +37,15 @@ int checkDuplicateEvents(const std::string inFileName)
   hiTree_p->SetBranchAddress("evt", &evt_);
 
   const Int_t nEntries = hiTree_p->GetEntries();
+  const Int_t nDiv = TMath::Max(1, nEntries/20);
 
   std::map<ULong64_t, Int_t> runLumiEventToEntry;
 
-
   Int_t keyCount = 0;
   bool noRepeat = true;
+  std::cout << "Processing " << nEntries << " entries..." << std::endl;
   for(Int_t entry = 0; entry < nEntries; ++entry){
+    if(entry%nDiv == 0) std::cout << " Entry " << entry << "/" << nEntries << "..." << std::endl;
     hiTree_p->GetEntry(entry);
 
     ULong64_t key = keyFromRunLumiEvent(run_, lumi_, evt_);
@@ -61,6 +63,8 @@ int checkDuplicateEvents(const std::string inFileName)
 
   inFile_p->Close();
   delete inFile_p;
+
+  std::cout << "Job complete!" << std::endl;
 
   return 0;
 }
