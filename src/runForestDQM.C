@@ -178,7 +178,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileName
   (*fileTex) << "\\begin{frame}" << std::endl;
   (*fileTex) << "\\frametitle{\\centerline{\\hypertarget{TopLevel}{Forest Validation} (" << date.GetYear() << "." << date.GetMonth() << "." << date.GetDay() << ")}}" << std::endl;
   (*fileTex) << " \\begin{itemize}" << std::endl;
-  (*fileTex) << "  \\fontsize{7}{7}\\selectfont" << std::endl;
+  (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
   if(eventCountOverride >= 0) (*fileTex) << " \\item{WARNING: EVENT NUMBER OVERRIDE SET, TEST INVALID}" << std::endl;
 
   for(unsigned int fI = 0; fI < inFileNames.size(); ++fI){
@@ -188,7 +188,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileName
 
   (*fileTex) << "  \\item{Good Trees:}" << std::endl;
   (*fileTex) << " \\begin{itemize}" << std::endl;
-  (*fileTex) << "  \\fontsize{7}{7}\\selectfont" << std::endl;
+  (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
   if(goodTrees.size() != 0){
     for(unsigned int tI = 0; tI < goodTrees.size(); ++tI){
       (*fileTex) << "  \\item{Tree " << tI << ": \'" << texFriendlyString(goodTrees.at(tI)) << "\',      \\hyperlink{tocSummary_" << goodTrees.at(tI) << "}{To Summary TOC},      \\hyperlink{tocFull_0_" << goodTrees.at(tI) << "}{To All Branch TOC}}" << std::endl;
@@ -201,7 +201,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileName
     (*fileTex) << "  \\item{Bad File " << fI+1 << ", " << texFriendlyString(inNickNames.at(fI)) << ", Trees:}" << std::endl;
 
     (*fileTex) << " \\begin{itemize}" << std::endl;
-    (*fileTex) << "  \\fontsize{7}{7}\\selectfont" << std::endl;
+    (*fileTex) << "  \\fontsize{5}{5}\\selectfont" << std::endl;
     if(missingTrees.at(fI).size() != 0){
       for(unsigned int tI = 0; tI < missingTrees.at(fI).size(); ++tI){
 	(*fileTex) << "  \\item{Tree " << tI << ": \'" << texFriendlyString(missingTrees.at(fI).at(tI)) << "\'}" << std::endl;
@@ -1074,7 +1074,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
       gPad->SetTicks(0, 1);
 
 
-      std::string saveName = histNames.at(0);
+      std::string saveName = histNames.at(0) + "_" + additionalNickName;
       for(Int_t fI = 1; fI < nFiles; ++fI){
 	saveName = saveName + "_" + inNickNames.at(fI);
       }
