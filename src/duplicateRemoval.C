@@ -39,11 +39,12 @@ int duplicateRemoval(const std::string inFileName)
   delete inFile_p;
 
   Int_t hiEvtPos = -1;
+  Int_t runAnaPos = -1;
+  Int_t hiInfoPos = -1;
   for(Int_t tI = 0; tI < nTrees; ++tI){
-    if(listOfTrees.at(tI).find("hiEvtAnalyzer") != std::string::npos){
-      hiEvtPos = tI;
-      break;
-    }
+    if(listOfTrees.at(tI).find("hiEvtAnalyzer") != std::string::npos) hiEvtPos = tI;
+    if(listOfTrees.at(tI).find("runAnalyzer/run") != std::string::npos) runAnaPos = tI;
+    if(listOfTrees.at(tI).find("HiForest/HiForestInfo") != std::string::npos) hiInfoPos = tI;
   }
 
   if(hiEvtPos < 0){
@@ -112,11 +113,11 @@ int duplicateRemoval(const std::string inFileName)
       if(tI == hiEvtPos) continue;
       trees_p[tI]->GetEntry(entry);
     }
-
     
     runLumiEvtToEntry[key] = entry;
 
     for(Int_t tI = 0; tI < nTrees; ++tI){
+      if((hiInfoPos == tI || runAnaPos == tI) && entry != 0) continue;
       outTrees_p[tI]->Fill();
     }    
   }
