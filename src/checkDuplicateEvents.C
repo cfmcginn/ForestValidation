@@ -8,7 +8,10 @@
 
 //cpp dependencies
 #include "include/checkMakeDir.h"
+#include "include/mntToXRootdFileString.h"
+#include "include/returnRootFileContentsList.h"
 #include "include/runLumiEventKey.h"
+#include "include/stringUtil.h"
 
 int checkDuplicateEvents(const std::string inFileName)
 {
@@ -21,32 +24,82 @@ int checkDuplicateEvents(const std::string inFileName)
     return 1;
   }
 
-  TFile* inFile_p = new TFile(inFileName.c_str(), "READ");
-  TTree* hiTree_p = (TTree*)inFile_p->Get("hiEvtAnalyzer/HiTree");
+  TFile* inFile_p = TFile::Open(mntToXRootdFileString(inFileName).c_str(), "READ");
+  std::vector<std::string> listOfTrees = returnRootFileContentsList(inFile_p, "TTree");
+
+  bool containsHITree = false;
+  bool containsHLTTree = false;
+  std::string hltTreeStr = "";
+
+  for(unsigned int tI = 0; tI < listOfTrees.size(); ++tI){
+    if(isStrSame(listOfTrees.at(tI), "hiEVtAnalyzer/HiTree")) containsHITree = true;
+    else if(isStrSame(listOfTrees.at(tI), "hltanalysis/HltTre") || isStrSame(listOfTrees.at(tI), "hltbitanalysis/HltTree")){
+      containsHLTTree = true;
+      hltTreeStr = listOfTrees.at(tI);
+    }
+  }
+
+  if(!containsHITree && !containsHLTTree){
+    std::cout << "No trees for event matching return 1" << std::endl;
+    return 1;
+  }
+
+  TTree* hiTree_p = NULL;
+  if(containsHITree) hiTree_p = (TTree*)inFile_p->Get("hiEvtAnalyzer/HiTree");
+  else if(containsHLTTree) hiTree_p = (TTree*)inFile_p->Get(hltTreeStr.c_str());
+
+  UInt_t runHI_, lumiHI_;
+  ULong64_t evtHI_;
+
+  Int_t runHLT_, lumiHLT_;
+  ULong64_t evtHLT_;
+
+
+  hiTree_p->SetBranchStatus("*", 0);
+  if(containsHITree){
+    hiTree_p->SetBranchStatus("run", 1);
+    hiTree_p->SetBranchStatus("lumi", 1);
+    hiTree_p->SetBranchStatus("evt", 1);
+    
+    hiTree_p->SetBranchAddress("run", &runHI_);
+    hiTree_p->SetBranchAddress("lumi", &lumiHI_);
+    hiTree_p->SetBranchAddress("evt", &evtHI_);
+  }
+  else if(containsHLTTree){
+    hiTree_p->SetBranchStatus("Run", 1);
+    hiTree_p->SetBranchStatus("LumiBlock", 1);
+    hiTree_p->SetBranchStatus("Event", 1);
+    
+    hiTree_p->SetBranchAddress("Run", &runHLT_);
+    hiTree_p->SetBranchAddress("LumiBlock", &lumiHLT_);
+    hiTree_p->SetBranchAddress("Event", &evtHLT_);
+  }
 
   UInt_t run_, lumi_;
   ULong64_t evt_;
-
-  hiTree_p->SetBranchStatus("*", 0);
-  hiTree_p->SetBranchStatus("run", 1);
-  hiTree_p->SetBranchStatus("lumi", 1);
-  hiTree_p->SetBranchStatus("evt", 1);
-
-  hiTree_p->SetBranchAddress("run", &run_);
-  hiTree_p->SetBranchAddress("lumi", &lumi_);
-  hiTree_p->SetBranchAddress("evt", &evt_);
 
   const Int_t nEntries = hiTree_p->GetEntries();
   const Int_t nDiv = TMath::Max(1, nEntries/20);
 
   std::map<ULong64_t, Int_t> runLumiEventToEntry;
-
+  
   Int_t keyCount = 0;
   bool noRepeat = true;
   std::cout << "Processing " << nEntries << " entries..." << std::endl;
   for(Int_t entry = 0; entry < nEntries; ++entry){
     if(entry%nDiv == 0) std::cout << " Entry " << entry << "/" << nEntries << "..." << std::endl;
     hiTree_p->GetEntry(entry);
+
+    if(containsHITree){
+      run_ = runHI_;
+      lumi_ = lumiHI_;
+      evt_ = evtHI_;
+    }
+    else{
+      run_ = (UInt_t)runHLT_;
+      lumi_ = (UInt_t)lumiHLT_;
+      evt_ = evtHLT_;
+    }
 
     ULong64_t key = keyFromRunLumiEvent(run_, lumi_, evt_);
 
@@ -60,6 +113,7 @@ int checkDuplicateEvents(const std::string inFileName)
   if(!noRepeat){
     std::cout << "inFileName \'" << inFileName << "\' contains duplicate run,lumi,event. Consider invalid" << std::endl;
   }
+  else std::cout << "NO DUPLICATES" << std::endl;
 
   inFile_p->Close();
   delete inFile_p;
