@@ -31,8 +31,10 @@ int checkDuplicateEvents(const std::string inFileName)
   bool containsHLTTree = false;
   std::string hltTreeStr = "";
 
+  std::cout << "Checking TTrees..." << std::endl;
   for(unsigned int tI = 0; tI < listOfTrees.size(); ++tI){
-    if(isStrSame(listOfTrees.at(tI), "hiEVtAnalyzer/HiTree")) containsHITree = true;
+    std::cout << " " << tI << "/" << listOfTrees.size() << ": " << listOfTrees.at(tI) << std::endl;
+    if(isStrSame(listOfTrees.at(tI), "hiEvtAnalyzer/HiTree")) containsHITree = true;
     else if(isStrSame(listOfTrees.at(tI), "hltanalysis/HltTre") || isStrSame(listOfTrees.at(tI), "hltbitanalysis/HltTree")){
       containsHLTTree = true;
       hltTreeStr = listOfTrees.at(tI);
