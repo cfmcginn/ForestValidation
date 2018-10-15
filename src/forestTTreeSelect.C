@@ -11,10 +11,10 @@
 
 //local dependencies
 #include "include/checkMakeDir.h"
+#include "include/mntToXRootdFileString.h"
 #include "include/returnRootFileContentsList.h"
-#include "include/runLumiEventKey.h"
 
-int duplicateRemoval(const std::string inFileName)
+int duplicateRemoval(const std::string inFileName, std::vector<std::string> ttreeSelection, const Int_t nEvtToKeep = -1)
 {
   if(inFileName.size() == 0){
     std::cout << "Given inFileName \'" << inFileName << "\' is invalid. return 1." << std::endl;
@@ -32,38 +32,47 @@ int duplicateRemoval(const std::string inFileName)
   checkMakeDir("output");
   checkMakeDir("output/" + dateStr);
 
-  TFile* inFile_p = new TFile(inFileName.c_str(), "READ");
+  TFile* inFile_p = TFile::Open(mntToXRootdFileString(inFileName).c_str(), "READ");
   std::vector<std::string> listOfTrees = returnRootFileContentsList(inFile_p, "TTree");
-  const Int_t nTrees = listOfTrees.size();
   inFile_p->Close();
   delete inFile_p;
 
-  Int_t hiEvtPos = -1;
-  Int_t runAnaPos = -1;
-  Int_t hiInfoPos = -1;
-  for(Int_t tI = 0; tI < nTrees; ++tI){
-    if(listOfTrees.at(tI).find("hiEvtAnalyzer") != std::string::npos) hiEvtPos = tI;
-    if(listOfTrees.at(tI).find("runAnalyzer/run") != std::string::npos) runAnaPos = tI;
-    if(listOfTrees.at(tI).find("HiForest/HiForestInfo") != std::string::npos) hiInfoPos = tI;
+  unsigned int pos = 0;
+  while(ttreeSelection.size() > pos){
+    bool isGoodTTreeSelect = false;
+    for(unsigned int tI = 0; tI < listOfTrees.size(); ++tI){
+      if(isStrSame(ttreeSelection.at(pos), listOfTrees.at(tI))){
+	isGoodTTreeSelect = true;
+	break;
+      }
+    }
+
+    if(isGoodTTreeSelect) ++pos;
+    else{
+      std::cout << "WARNING: Given ttree to select, \'" << ttreeSelection.at(pos) << "\', is not found in file \'" << inFileName << "\'. Removing from selection list" << std::endl;
+      ttreeSelection.erase(ttreeSelection.begin()+pos);
+    }
   }
 
-  if(hiEvtPos < 0){
-    std::cout << "No tree for run lumi evt... return 1" << std::endl;
+  if(ttreeSelection.size() == 0 && nEvtToKeep < 1){
+    std::cout << "WARNING: No valid ttree selected and also no events selected for skimming. Would just duplicate file. terminate job, return 1" << std::endl;
     return 1;
   }
 
-  UInt_t run_, lumi_;
-  ULong64_t evt_;
-  
+  if(ttreeSelection.size() != 0) listOfTrees = ttreeSelection;
 
+  std::string nEvtKeepStr = "nEvtAll";
+  if(nEvtToKeep >= 0) nEvtKeepStr = "nEvt" + std::to_string(nEvtToKeep);
 
   std::string outFileName = inFileName;
   while(outFileName.find("/") != std::string::npos){outFileName.replace(0, outFileName.find("/")+1, "");}
-  outFileName = "output/" + dateStr + "/" + outFileName + "_RemoveDuplicates_" + dateStr + ".root";
+  outFileName = "output/" + dateStr + "/" + outFileName + "_TTreeSkim_" + nEvtKeepStr + "_" + dateStr + ".root";
 
   TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
+  const Int_t nTrees = listOfTrees.size();
   TDirectoryFile* outDirs_p[nTrees];
   TTree* outTrees_p[nTrees];
+
   std::cout << "IGNORE FOLLOWING CD ERRORS - HANDLED CORRECTLY" << std::endl;
   for(unsigned int tI = 0; tI < listOfTrees.size(); ++tI){
     std::string dirName = listOfTrees.at(tI).substr(0, listOfTrees.at(tI).find("/"));
@@ -76,54 +85,38 @@ int duplicateRemoval(const std::string inFileName)
   }
 
 
-  inFile_p = new TFile(inFileName.c_str(), "READ");
+  inFile_p = TFile::Open(mntToXRootdFileString(inFileName).c_str(), "READ");
   
   TTree* trees_p[nTrees];
+  Int_t treeNEntries[nTrees];
+  Int_t maxNEntries = -1;
 
   for(Int_t tI = 0; tI < nTrees; ++tI){
     trees_p[tI] = (TTree*)inFile_p->Get(listOfTrees.at(tI).c_str());
+    treeNEntries[tI] = trees_p[tI]->GetEntries();
+    maxNEntries = TMath::Max(maxNEntries, treeNEntries[tI]);
     std::string dirName = listOfTrees.at(tI).substr(0, listOfTrees.at(tI).find("/"));
     outFile_p->cd(dirName.c_str());
     outTrees_p[tI] = trees_p[tI]->CloneTree(0);
   }
-  
-  trees_p[hiEvtPos]->SetBranchAddress("run", &run_);
-  trees_p[hiEvtPos]->SetBranchAddress("lumi", &lumi_);
-  trees_p[hiEvtPos]->SetBranchAddress("evt", &evt_);
-  
-  std::map<ULong64_t, Int_t> runLumiEvtToEntry;
 
-  const Int_t nEntries = trees_p[0]->GetEntries();
+  Int_t nEvtToKeepTemp = nEvtToKeep;
+  if(nEvtToKeep < 1)  nEvtToKeepTemp = maxNEntries;
+  const Int_t nEntries = TMath::Min(maxNEntries, nEvtToKeepTemp);
   const Int_t nDiv = TMath::Max(1, nEntries/20);
-
-  Int_t removed = 0;
 
   std::cout << "Processing " << nEntries << " events..." << std::endl;
   for(Int_t entry = 0; entry < nEntries; ++entry){
     if(entry%nDiv == 0) std::cout << " Entry " << entry << "/" << nEntries << "..." << std::endl;
 
-    trees_p[hiEvtPos]->GetEntry(entry);
-
-    ULong64_t key = keyFromRunLumiEvent(run_, lumi_, evt_);
-    if(runLumiEvtToEntry.count(key) != 0){
-      removed++;
-      continue;
-    }
-
     for(Int_t tI = 0; tI < nTrees; ++tI){
-      if(tI == hiEvtPos) continue;
-      trees_p[tI]->GetEntry(entry);
+      if(entry < treeNEntries[tI]) trees_p[tI]->GetEntry(entry);
     }
     
-    runLumiEvtToEntry[key] = entry;
-
     for(Int_t tI = 0; tI < nTrees; ++tI){
-      if((hiInfoPos == tI || runAnaPos == tI) && entry != 0) continue;
-      outTrees_p[tI]->Fill();
+      if(entry < treeNEntries[tI]) outTrees_p[tI]->Fill();
     }    
   }
-
-  std::cout << "Removed " << removed << "/" << nEntries << " duplicates" << std::endl;
 
   inFile_p->Close();
   delete inFile_p;
@@ -147,12 +140,24 @@ int duplicateRemoval(const std::string inFileName)
 
 int main(int argc, char* argv[])
 {
-  if(argc != 2){
-    std::cout << "Usage: ./bin/duplicateRemoval.exe <inFileName>. return 1" << std::endl;
+  if(argc != 3 && argc != 4){
+    std::cout << "Usage: ./bin/duplicateRemoval.exe <inFileName> <commaSeparatedTreeList> <opt-nEvtToKeep>. return 1" << std::endl;
     return 1;
   }
 
+  std::string argv2Str = std::string(argv[2]) + ",";
+  while(argv2Str.find(",,") != std::string::npos){argv2Str.replace(argv2Str.find(",,"), 2, ",");}
+  std::vector<std::string> argv2Vect;
+
+  if(argv2Str.size() > 1){
+    while(argv2Str.find(",") != std::string::npos){
+      argv2Vect.push_back(argv2Str.substr(0, argv2Str.find(",")));
+      argv2Str.replace(0, argv2Str.find(",")+1, "");
+    }
+  }
+
   int retVal = 0;
-  retVal += duplicateRemoval(argv[1]);
+  if(argc == 3) retVal += duplicateRemoval(argv[1], argv2Vect);
+  else retVal += duplicateRemoval(argv[1], argv2Vect, std::stoi(argv[3]));
   return retVal;
 }
