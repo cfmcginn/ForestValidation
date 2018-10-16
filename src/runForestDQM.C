@@ -30,6 +30,7 @@
 #include "include/histDefUtility.h"
 #include "include/kirchnerPalette.h"
 #include "include/plotUtilities.h"
+#include "include/mntToXRootdFileString.h"
 #include "include/removeVectorDuplicates.h"
 #include "include/returnRootFileContentsList.h"
 #include "include/stringUtil.h"
@@ -544,7 +545,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
   TFile* inFiles_p[nFiles];
   std::vector<std::vector<std::string > > fileTrees;
   for(Int_t fI = 0; fI < nFiles; ++fI){
-    inFiles_p[fI] = new TFile(inFileNames.at(fI).c_str(), "READ");
+    inFiles_p[fI] = TFile::Open(mntToXRootdFileString(inFileNames.at(fI)).c_str(), "READ");
     std::vector<std::string> tempTrees = returnRootFileContentsList(inFiles_p[fI], "TTree", treeSelect);
     removeVectorDuplicates(&tempTrees);
     dumpTreeNames(inFileNames.at(fI), tempTrees);
