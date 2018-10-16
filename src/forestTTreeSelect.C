@@ -66,6 +66,7 @@ int duplicateRemoval(const std::string inFileName, std::vector<std::string> ttre
 
   std::string outFileName = inFileName;
   while(outFileName.find("/") != std::string::npos){outFileName.replace(0, outFileName.find("/")+1, "");}
+  if(outFileName.find(".") != std::string::npos) outFileName = outFileName.substr(0, outFileName.find("."));
   outFileName = "output/" + dateStr + "/" + outFileName + "_TTreeSkim_" + nEvtKeepStr + "_" + dateStr + ".root";
 
   TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
