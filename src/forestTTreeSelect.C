@@ -14,7 +14,7 @@
 #include "include/mntToXRootdFileString.h"
 #include "include/returnRootFileContentsList.h"
 
-int duplicateRemoval(const std::string inFileName, std::vector<std::string> ttreeSelection, const Int_t nEvtToKeep = -1)
+int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttreeSelection, const Int_t nEvtToKeep = -1)
 {
   if(inFileName.size() == 0){
     std::cout << "Given inFileName \'" << inFileName << "\' is invalid. return 1." << std::endl;
@@ -142,7 +142,7 @@ int duplicateRemoval(const std::string inFileName, std::vector<std::string> ttre
 int main(int argc, char* argv[])
 {
   if(argc != 3 && argc != 4){
-    std::cout << "Usage: ./bin/duplicateRemoval.exe <inFileName> <commaSeparatedTreeList> <opt-nEvtToKeep>. return 1" << std::endl;
+    std::cout << "Usage: ./bin/forestTTreeSelect.exe <inFileName> <commaSeparatedTreeList> <opt-nEvtToKeep>. return 1" << std::endl;
     return 1;
   }
 
@@ -158,7 +158,7 @@ int main(int argc, char* argv[])
   }
 
   int retVal = 0;
-  if(argc == 3) retVal += duplicateRemoval(argv[1], argv2Vect);
-  else retVal += duplicateRemoval(argv[1], argv2Vect, std::stoi(argv[3]));
+  if(argc == 3) retVal += forestTTreeSelect(argv[1], argv2Vect);
+  else retVal += forestTTreeSelect(argv[1], argv2Vect, std::stoi(argv[3]));
   return retVal;
 }
