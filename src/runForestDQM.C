@@ -11,6 +11,7 @@
 #include "TFile.h"
 #include "TTree.h"
 #include "TH1D.h"
+#include "TH2D.h"
 #include "TH1F.h"
 #include "TCanvas.h"
 #include "TObjArray.h"
@@ -488,6 +489,11 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
   std::vector<std::string> pairVars1;
   std::vector<std::string> pairVars2;
 
+  std::vector<double> pairVarsMin1;
+  std::vector<double> pairVarsMin2;
+  std::vector<double> pairVarsMax1;
+  std::vector<double> pairVarsMax2;
+
   if(commaSeparatedPairList.size() != 0){
     std::string commaSeparatedPairListCopy = commaSeparatedPairList;
 
@@ -503,6 +509,11 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 
 	pairVars1.push_back(var1);
 	pairVars2.push_back(varStr);	
+
+	pairVarsMin1.push_back(-1);
+	pairVarsMax1.push_back(-1);
+	pairVarsMin2.push_back(-1);
+	pairVarsMax2.push_back(-1);
       }
 
       commaSeparatedPairListCopy.replace(0, commaSeparatedPairListCopy.find(",")+1, "");
@@ -518,6 +529,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
   kirchnerPalette col;
   TDatime date;
   const std::string dateStr = std::to_string(date.GetDate());
+  const Int_t nBins = 50;
 
   const Int_t colors[fileCap] = {1, col.getColor(2), col.getColor(0), col.getColor(3), col.getColor(2), col.getColor(0), col.getColor(3), col.getColor(2)};
   const Int_t styles[fileCap] = {20, 25, 28, 27, 46, 24, 42, 44};
@@ -555,6 +567,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 
   std::string texTreeStr = "AllTrees";
   if(treeSelect.size() != 0) texTreeStr = treeSelect;
+  while(texTreeStr.find("/") != std::string::npos){texTreeStr.replace(texTreeStr.find("/"), 1, "_");}
 
   std::string fullDirName = "pdfDir/" + dateStr + "/" + texFileName;
   while(fullDirName.substr(fullDirName.size()-1,1).find("_") != std::string::npos){fullDirName.replace(fullDirName.size()-1, 1, "");}
@@ -647,7 +660,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 
       branchList.push_back({});
       leafList.push_back({});
-
+    
       for(unsigned int bI1 = 0; bI1 < uncleanedBranches.size(); ++bI1){
 	std::string branchName = uncleanedBranches.at(bI1);
 	std::string leafName = uncleanedLeaves.at(bI1);
@@ -675,7 +688,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
     }
 
     std::cout << "Checking branch strings match..." << std::endl;
-
+  
     for(Int_t fI = 0; fI < nFiles-1; ++fI){
       for(Int_t fI2 = fI+1; fI2 < nFiles; ++fI2){
 	if(doStringsMatch(&(branchList.at(fI)), &(branchList.at(fI2)), &(misMatchedBranches.at(fI)), &(misMatchedBranches.at(fI2)))) std::cout << "All branches match between files!" << std::endl;
@@ -685,14 +698,22 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	else std::cout << "Mismatched leaves found and removed..." << std::endl;
       }
     }
-      
+    
+    std::vector<bool> pairVars1Found;
+    std::vector<bool> pairVars2Found;
+  
+    for(unsigned int i = 0; i < pairVars1.size(); ++i){
+      pairVars1Found.push_back(false);
+      pairVars2Found.push_back(false);
+    }
+
     for(unsigned int bI1 = 0; bI1 < branchList.at(0).size(); ++bI1){
       std::cout << " Processing \'" << branchList.at(0).at(bI1) << "\'..." << std::endl;
 
       tree_p[0]->ResetBranchAddresses();
       tree_p[0]->SetBranchStatus("*", 0);
       tree_p[0]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
-
+    
       Double_t maxVal = tree_p[0]->GetMaximum(branchList.at(0).at(bI1).c_str());
       Double_t minVal = tree_p[0]->GetMinimum(branchList.at(0).at(bI1).c_str());
  
@@ -912,7 +933,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	  return 1;
 	}
       }
-   
+    
       std::vector<std::string> histNames;
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	std::string histName = fileTrees.at(0).at(tI) + "_" + branchList.at(0).at(bI1) + "_" + inNickNames.at(fI) + "_h";
@@ -943,16 +964,27 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
       if(TMath::Abs(minVal - maxVal) < 0.000000001){
 	minVal -= 1;
 	maxVal +=1;
-
 	//	std::cout << "Resetting min/maxVal: " << branchList.at(0).at(bI1) << std::endl;
       }
       //      else  std::cout << "Not-resetting: " << branchList.at(0).at(bI1) << std::endl;
-
+    
       TH1D* tempHist_p[nFiles];
 
-      const Int_t nBins = 50;
       Double_t bins[nBins+1];
       //      bool doLogX = maxVal - minVal > 300 && minVal > 0;
+
+      for(unsigned int pI = 0; pI < pairVars1.size(); ++pI){
+	if(isStrSame(branchList.at(0).at(bI1), pairVars1.at(pI))){
+	  pairVars1Found.at(pI) = true;
+	  pairVarsMax1.at(pI) = maxVal;
+	  pairVarsMin1.at(pI) = minVal;
+	}
+	else if(isStrSame(branchList.at(0).at(bI1), pairVars2.at(pI))){
+	  pairVars2Found.at(pI) = true;
+	  pairVarsMax2.at(pI) = maxVal;
+	  pairVarsMin2.at(pI) = minVal;
+	}
+      }
 
       bool doLogX = getDoLog(minVal, maxVal, 2);
 
@@ -1121,6 +1153,67 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
       delete canv_p;
     }
 
+    for(unsigned int pI = 0; pI < pairVars1Found.size(); ++pI){
+      if(!pairVars1Found.at(pI)) continue;
+      if(!pairVars2Found.at(pI)) continue;
+    
+      for(Int_t hI = 0; hI < nFiles; ++hI){
+	tree_p[hI]->ResetBranchAddresses();
+	tree_p[hI]->SetBranchStatus("*", 0);
+	tree_p[hI]->SetBranchStatus(pairVars1.at(pI).c_str(), 1);
+	tree_p[hI]->SetBranchStatus(pairVars2.at(pI).c_str(), 1);
+
+
+	std::string histName = fileTrees.at(0).at(tI) + "_" + pairVars1.at(pI) + "_" + pairVars2.at(pI) + "_" + inNickNames.at(hI) + "_h";
+	while(histName.find("/") != std::string::npos){histName.replace(histName.find("/"), 1, "_");}
+	TH2D* hist_p = new TH2D(histName.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
+
+	TCanvas* canv_p = new TCanvas("tempCanv_p", "tempCanv_p", 450, 450);
+	canv_p->SetTopMargin(0.12);
+	canv_p->SetBottomMargin(0.12);
+	canv_p->SetLeftMargin(0.12);
+	canv_p->SetRightMargin(0.12);
+      
+	if(eventCountOverride < 0) tree_p[hI]->Project(histName.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), "", "");
+	else tree_p[hI]->Project(histName.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), "", "", eventCountOverride);
+		
+	hist_p->GetXaxis()->SetTitleFont(43);
+	hist_p->GetYaxis()->SetTitleFont(43);
+	hist_p->GetXaxis()->SetLabelFont(43);
+	hist_p->GetYaxis()->SetLabelFont(43);
+	
+	hist_p->GetXaxis()->SetTitleSize(12);
+	hist_p->GetYaxis()->SetTitleSize(12);
+	hist_p->GetXaxis()->SetLabelSize(12);
+	hist_p->GetYaxis()->SetLabelSize(12);
+	
+	//	hist_p->GetXaxis()->SetTitleOffset(hist_p->GetXaxis()->GetTitleOffset());
+	//	hist_p->GetYaxis()->SetTitleOffset(hist_p->GetXaxis()->GetTitleOffset()/3.);
+
+	centerTitles(hist_p);
+	setSumW2(hist_p);
+
+	if(doEventNorm) hist_p->Scale(1./(Double_t)tree_p[hI]->GetEntries());
+	
+	hist_p->DrawCopy("COLZ");
+	gPad->SetLogz();
+
+	gPad->RedrawAxis();
+	gPad->SetTicks(0, 1);
+      	
+	std::string saveName = histName + "_" + additionalNickName;
+	saveName = saveName + "_" + dateStr + ".pdf";
+	pdfList.push_back(saveName);
+	quietSaveAs(canv_p, fullDirName + saveName);
+
+	branchList.at(0).push_back(pairVars1.at(pI) + ":" + pairVars2.at(pI) + "-" + inNickNames.at(hI));
+
+	delete hist_p;
+	delete canv_p;
+      }
+    }
+  
+  
     doTreeTexSlide(&fileTex, fileTrees.at(0).at(tI), inNickNames, misMatchedBranches, warningList, warningListPos);
     //    doTreeTexSlide(&fileSubTex, file1Trees.at(tI), misMatchedBranches1, misMatchedBranches2, warningList, warningListPos);
     doBranchTexSlide(&fileSubTex, fileTrees.at(0).at(tI), branchList.at(0));
