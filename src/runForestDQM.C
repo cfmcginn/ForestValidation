@@ -726,12 +726,12 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
       
       //We have to handle vectors differently, getMax and getMin do not work from ttree
       if(tempClassType.find("vector") != std::string::npos && tempClassType.find("vector<vector") == std::string::npos){
-	std::cout << "Searching for vector max/min of branch \'" << branchList.at(0).at(bI1) << "\'" << std::endl;
+	//	std::cout << "Searching for vector max/min of branch \'" << branchList.at(0).at(bI1) << "\'" << std::endl;
 
 	bool isFirstFound = false;
 
 	if(tempClassType.find("int") != std::string::npos){
-	  std::cout << " Doing int search..." << std::endl;
+	  //	  std::cout << " Doing int search..." << std::endl;
 
 	  for(Int_t fI = 0; fI < nFiles; ++fI){
 	    tree_p[fI]->SetBranchStatus("*", 0);
@@ -775,7 +775,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	  }
 	}
 	else if(tempClassType.find("short") != std::string::npos){
-	  std::cout << " Doing short search..." << std::endl;
+	  //	  std::cout << " Doing short search..." << std::endl;
 
 	  for(Int_t fI = 0; fI < nFiles; ++fI){
 	    tree_p[fI]->SetBranchStatus("*", 0);
@@ -819,7 +819,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	  }
 	}
 	else if(tempClassType.find("float") != std::string::npos){
-	  std::cout << " Doing float search..." << std::endl;
+	  //	  std::cout << " Doing float search..." << std::endl;
 
 	  for(Int_t fI = 0; fI < nFiles; ++fI){
 	    tree_p[fI]->SetBranchStatus("*", 0);
@@ -864,7 +864,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	  }
 	}
 	else if(tempClassType.find("double") != std::string::npos){
-	  std::cout << " Doing double search..." << std::endl;
+	  //	  std::cout << " Doing double search..." << std::endl;
 
 	  for(Int_t fI = 0; fI < nFiles; ++fI){
 	    tree_p[fI]->SetBranchStatus("*", 0);
@@ -944,9 +944,9 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	minVal -= 1;
 	maxVal +=1;
 
-	std::cout << "Resetting min/maxVal: " << branchList.at(0).at(bI1) << std::endl;
+	//	std::cout << "Resetting min/maxVal: " << branchList.at(0).at(bI1) << std::endl;
       }
-      else std::cout << "Not-resetting: " << branchList.at(0).at(bI1) << std::endl;
+      //      else  std::cout << "Not-resetting: " << branchList.at(0).at(bI1) << std::endl;
 
       TH1D* tempHist_p[nFiles];
 
@@ -966,9 +966,9 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	minVal -= interval/10.;
       }
 
-      std::cout << branchList.at(0).at(bI1) << ", " << maxVal << ", " << minVal << ", " << doLogX << std::endl;
-      std::cout << " maxValFile: " << maxValFile << std::endl;
-      std::cout << " minValFile: " << minValFile << std::endl;
+      //      std::cout << branchList.at(0).at(bI1) << ", " << maxVal << ", " << minVal << ", " << doLogX << std::endl;
+      //      std::cout << " maxValFile: " << maxValFile << std::endl;
+      //      std::cout << " minValFile: " << minValFile << std::endl;
 
       if(doLogX) getLogBins(minVal, maxVal, nBins, bins);
       else getLinBins(minVal, maxVal, nBins, bins);
