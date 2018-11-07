@@ -463,7 +463,7 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
 }
 
 
-int runForestDQM(std::vector<std::string> inFileNames, const std::string additionalNickName, std::vector<std::string> inNickNames, const std::string treeSelect = "", const Bool_t doEventNorm = false, const Int_t eventCountOverride = -1)
+int runForestDQM(std::vector<std::string> inFileNames, const std::string additionalNickName, std::vector<std::string> inNickNames, const std::string treeSelect = "", const Bool_t doEventNorm = false, const Int_t eventCountOverride = -1, const std::string commaSeparatedPairList = "")
 {
   std::string globalYStrTemp = "Counts";
   if(doEventNorm) globalYStrTemp = "#frac{1}{N_{evt}} Counts";
@@ -483,6 +483,35 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
       return 1;
     }
     else if(inNickNames.at(fI).size() == 0) inNickNames.at(fI) = "File" + std::to_string(fI+1);
+  }
+
+  std::vector<std::string> pairVars1;
+  std::vector<std::string> pairVars2;
+
+  if(commaSeparatedPairList.size() != 0){
+    std::string commaSeparatedPairListCopy = commaSeparatedPairList;
+
+    if(commaSeparatedPairListCopy.substr(commaSeparatedPairListCopy.size()-1, 1).find(",") == std::string::npos) commaSeparatedPairListCopy = commaSeparatedPairListCopy + ",";
+    while(commaSeparatedPairListCopy.find(",") != std::string::npos){
+      std::string varStr = commaSeparatedPairListCopy.substr(0, commaSeparatedPairListCopy.find(","));
+      if(varStr.find(":") == std::string::npos){
+	std::cout << "Potential variable pair \'" << varStr << "\' from \'" << commaSeparatedPairList << "\' is not valid syntax. Please input as \'var1:var2\'. skipping..." << std::endl;
+      }
+      else{
+	std::string var1 = varStr.substr(0, varStr.find(":"));
+	varStr.replace(0, varStr.find(":")+1, "");
+
+	pairVars1.push_back(var1);
+	pairVars2.push_back(varStr);	
+      }
+
+      commaSeparatedPairListCopy.replace(0, commaSeparatedPairListCopy.find(",")+1, "");
+    }
+  }
+
+  std::cout << "Processing the following potential pairs in all TTree: " << std::endl;
+  for(unsigned int i = 0; i < pairVars1.size(); ++i){
+    std::cout << " " << i << "/" << pairVars1.size() << ": " << pairVars1.at(i) << ":" << pairVars2.at(i) << std::endl;
   }
 
   Double_t minDeltaVal = 0.000000001;
@@ -901,14 +930,14 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
       canv_p->cd();
       pads_p[0]->Draw("SAME");
       pads_p[0]->SetTopMargin(0.01);
-      pads_p[0]->SetRightMargin(0.01);
+      pads_p[0]->SetRightMargin(pads_p[0]->GetLeftMargin());
       pads_p[0]->SetBottomMargin(0.0);
 
       pads_p[1] = new TPad("pads1", "", 0.0, 0.00, 1.0, 0.35);
       canv_p->cd();
       pads_p[1]->Draw("SAME");
       pads_p[1]->SetTopMargin(0.0);
-      pads_p[1]->SetRightMargin(0.01);
+      pads_p[1]->SetRightMargin(pads_p[0]->GetLeftMargin());
       pads_p[1]->SetBottomMargin(pads_p[1]->GetLeftMargin()*3.);
 
       if(TMath::Abs(minVal - maxVal) < 0.000000001){
@@ -1123,8 +1152,8 @@ int main(int argc, char* argv[])
   cppWatch watch;
   watch.start();
 
-  if(argc < 3 || argc > 7){
-    std::cout << "Usage: ./bin/runForestDQM.exe <inFileNames> <additionalNickName> <inNickNames> <treeSelect> <doEventNorm> <eventCountOverride>" << std::endl;
+  if(argc < 3 || argc > 8){
+    std::cout << "Usage: ./bin/runForestDQM.exe <inFileNames> <additionalNickName> <inNickNames> <treeSelect> <doEventNorm> <eventCountOverride> <commaSeparatedPairList>" << std::endl;
     std::cout << " inFileNames, inNickNames a comma separated list of arbitrarily many files" << std::endl;
     return 1;
   }
@@ -1163,10 +1192,8 @@ int main(int argc, char* argv[])
   if(argc == 3 || argc == 4) retVal += runForestDQM(inFiles, argv[2], inNickNames);
   else if(argc == 5) retVal += runForestDQM(inFiles, argv[2], inNickNames, argv[4]);
   else if(argc == 6) retVal += runForestDQM(inFiles, argv[2], inNickNames, argv[4], std::stoi(argv[5]));
-  else if(argc == 7){
-    std::cout << "WARNING, EVENT COUNT OVERRIDE GIVEN, FOR TESTING ONLY, NOT VALID CHECK" << std::endl;
-    retVal += runForestDQM(inFiles, argv[2], inNickNames, argv[4], std::stoi(argv[5]), std::stoi(argv[6]));
-  }
+  else if(argc == 7) retVal += runForestDQM(inFiles, argv[2], inNickNames, argv[4], std::stoi(argv[5]), std::stoi(argv[6]));
+  else if(argc == 8) retVal += runForestDQM(inFiles, argv[2], inNickNames, argv[4], std::stoi(argv[5]), std::stoi(argv[6]), argv[7]);
 
   watch.stop();
   std::cout << "Timing: " << watch.total() << std::endl;
