@@ -500,7 +500,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
     if(commaSeparatedPairListCopy.substr(commaSeparatedPairListCopy.size()-1, 1).find(",") == std::string::npos) commaSeparatedPairListCopy = commaSeparatedPairListCopy + ",";
     while(commaSeparatedPairListCopy.find(",") != std::string::npos){
       std::string varStr = commaSeparatedPairListCopy.substr(0, commaSeparatedPairListCopy.find(","));
-      if(varStr.find(":") == std::string::npos){
+      if(varStr.find(":") == std::string::npos || varStr.find(":") != varStr.rfind(":")){
 	std::cout << "Potential variable pair \'" << varStr << "\' from \'" << commaSeparatedPairList << "\' is not valid syntax. Please input as \'var1:var2\'. skipping..." << std::endl;
       }
       else{
