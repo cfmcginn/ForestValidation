@@ -449,7 +449,9 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
   (*fileTex) << "\\frametitle{\\centerline{\\hypertarget{branch_" << inTreeName << "_" << inBranchNum << "}{" << texFriendlyString(inBranchName) << "} (" << treeTitle << ")}}" << std::endl;
 
   (*fileTex) << "\\begin{center}" << std::endl;
-  (*fileTex) << "\\includegraphics[width=0.6\\textwidth]{" << inPdfName << "}" << std::endl;
+
+  if(inBranchName.find(":") == std::string::npos) (*fileTex) << "\\includegraphics[width=0.6\\textwidth]{" << inPdfName << "}" << std::endl;
+  else (*fileTex) << "\\includegraphics[width=0.98\\textwidth]{" << inPdfName << "}" << std::endl;
   (*fileTex) << "\\end{center}" << std::endl;
 
   (*fileTex) << "\\begin{itemize}" << std::endl;
@@ -1157,59 +1159,137 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
       if(!pairVars1Found.at(pI)) continue;
       if(!pairVars2Found.at(pI)) continue;
     
-      for(Int_t hI = 0; hI < nFiles; ++hI){
-	tree_p[hI]->ResetBranchAddresses();
-	tree_p[hI]->SetBranchStatus("*", 0);
-	tree_p[hI]->SetBranchStatus(pairVars1.at(pI).c_str(), 1);
-	tree_p[hI]->SetBranchStatus(pairVars2.at(pI).c_str(), 1);
+      tree_p[0]->ResetBranchAddresses();
+      tree_p[0]->SetBranchStatus("*", 0);
+      tree_p[0]->SetBranchStatus(pairVars1.at(pI).c_str(), 1);
+      tree_p[0]->SetBranchStatus(pairVars2.at(pI).c_str(), 1);
 
+      std::string histNameDenom = fileTrees.at(0).at(tI) + "_" + pairVars1.at(pI) + "_" + pairVars2.at(pI) + "_" + inNickNames.at(0) + "_h";
+      while(histNameDenom.find("/") != std::string::npos){histNameDenom.replace(histNameDenom.find("/"), 1, "_");}
+      TH2D* histDenom_p = new TH2D(histNameDenom.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
 
-	std::string histName = fileTrees.at(0).at(tI) + "_" + pairVars1.at(pI) + "_" + pairVars2.at(pI) + "_" + inNickNames.at(hI) + "_h";
-	while(histName.find("/") != std::string::npos){histName.replace(histName.find("/"), 1, "_");}
-	TH2D* hist_p = new TH2D(histName.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
+	  
+      if(eventCountOverride < 0) tree_p[0]->Project(histNameDenom.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), "", "");
+      else tree_p[0]->Project(histNameDenom.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), "", "", eventCountOverride);
+	  
+      histDenom_p->SetTitleFont(43);
+      histDenom_p->SetTitleSize(12);
 
-	TCanvas* canv_p = new TCanvas("tempCanv_p", "tempCanv_p", 450, 450);
-	canv_p->SetTopMargin(0.12);
-	canv_p->SetBottomMargin(0.12);
-	canv_p->SetLeftMargin(0.12);
-	canv_p->SetRightMargin(0.12);
+      histDenom_p->GetXaxis()->SetTitleFont(43);
+      histDenom_p->GetYaxis()->SetTitleFont(43);
+      histDenom_p->GetXaxis()->SetLabelFont(43);
+      histDenom_p->GetYaxis()->SetLabelFont(43);
       
-	if(eventCountOverride < 0) tree_p[hI]->Project(histName.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), "", "");
-	else tree_p[hI]->Project(histName.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), "", "", eventCountOverride);
-		
-	hist_p->GetXaxis()->SetTitleFont(43);
-	hist_p->GetYaxis()->SetTitleFont(43);
-	hist_p->GetXaxis()->SetLabelFont(43);
-	hist_p->GetYaxis()->SetLabelFont(43);
-	
-	hist_p->GetXaxis()->SetTitleSize(12);
-	hist_p->GetYaxis()->SetTitleSize(12);
-	hist_p->GetXaxis()->SetLabelSize(12);
-	hist_p->GetYaxis()->SetLabelSize(12);
-	
-	//	hist_p->GetXaxis()->SetTitleOffset(hist_p->GetXaxis()->GetTitleOffset());
-	//	hist_p->GetYaxis()->SetTitleOffset(hist_p->GetXaxis()->GetTitleOffset()/3.);
+      histDenom_p->GetXaxis()->SetTitleSize(18);
+      histDenom_p->GetYaxis()->SetTitleSize(18);
+      histDenom_p->GetXaxis()->SetLabelSize(16);
+      histDenom_p->GetYaxis()->SetLabelSize(16);
 
-	centerTitles(hist_p);
-	setSumW2(hist_p);
+      histDenom_p->SetTitle(inNickNames.at(0).c_str());
+      
+      
+      centerTitles(histDenom_p);
+      setSumW2(histDenom_p);
+    
+      if(doEventNorm) histDenom_p->Scale(1./(Double_t)tree_p[0]->GetEntries());
+      
+      if(nFiles <= 1){
+	std::cout << "Single file not yet implemented" << std::endl;
+      }
+      else{
+	for(Int_t hI = 1; hI < nFiles; ++hI){
 
-	if(doEventNorm) hist_p->Scale(1./(Double_t)tree_p[hI]->GetEntries());
-	
-	hist_p->DrawCopy("COLZ");
-	gPad->SetLogz();
+	  std::string histName = fileTrees.at(0).at(tI) + "_" + pairVars1.at(pI) + "_" + pairVars2.at(pI) + "_" + inNickNames.at(hI) + "_h";
+	  while(histName.find("/") != std::string::npos){histName.replace(histName.find("/"), 1, "_");}
+	  TH2D* hist_p = new TH2D(histName.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
+	  	
+	  TCanvas* canv_p = new TCanvas("tempCanv_p", "tempCanv_p", 450*3, 450);	 
+	  canv_p->SetTopMargin(0.01);
+	  canv_p->SetBottomMargin(0.01);
+	  canv_p->SetLeftMargin(0.01);
+	  canv_p->SetRightMargin(0.01);
 
-	gPad->RedrawAxis();
-	gPad->SetTicks(0, 1);
-      	
-	std::string saveName = histName + "_" + additionalNickName;
-	saveName = saveName + "_" + dateStr + ".pdf";
-	pdfList.push_back(saveName);
-	quietSaveAs(canv_p, fullDirName + saveName);
+	  const Int_t nPads = 3;
+	  TPad* pads[nPads];
+	  for(Int_t i = 0; i < nPads; ++i){
+	    double xLow = 0.0 + i/3.;
+	    double xHi = 0.0 + (i+1)/3.;
 
-	branchList.at(0).push_back(pairVars1.at(pI) + ":" + pairVars2.at(pI) + "-" + inNickNames.at(hI));
+	    pads[i] = new TPad(("pads" + std::to_string(i)).c_str(), "", xLow, 0.0, xHi, 1.0);
+	    pads[i]->SetTopMargin(0.12);
+	    pads[i]->SetBottomMargin(0.12);
+	    pads[i]->SetLeftMargin(0.12);
+	    pads[i]->SetRightMargin(0.12);
+	    canv_p->cd();
+	    pads[i]->Draw("SAME");
+	    pads[i]->cd();
+	  }
+	  
+	  canv_p->cd();
+	  pads[0]->cd();
+	  histDenom_p->DrawCopy("COLZ");	 
+	  gPad->SetLogz();
+	  gPad->RedrawAxis();
+	  gPad->SetTicks(0, 1);
+	  
+	  tree_p[hI]->ResetBranchAddresses();
+	  tree_p[hI]->SetBranchStatus("*", 0);
+	  tree_p[hI]->SetBranchStatus(pairVars1.at(pI).c_str(), 1);
+	  tree_p[hI]->SetBranchStatus(pairVars2.at(pI).c_str(), 1);
+	  
+	  if(eventCountOverride < 0) tree_p[hI]->Project(histName.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), "", "");
+	  else tree_p[hI]->Project(histName.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), "", "", eventCountOverride);
+	  
+	  hist_p->SetTitleFont(43);
+	  hist_p->SetTitleSize(12);
 
-	delete hist_p;
-	delete canv_p;
+	  hist_p->GetXaxis()->SetTitleFont(43);
+	  hist_p->GetYaxis()->SetTitleFont(43);
+	  hist_p->GetXaxis()->SetLabelFont(43);
+	  hist_p->GetYaxis()->SetLabelFont(43);
+	  
+	  hist_p->GetXaxis()->SetTitleSize(18);
+	  hist_p->GetYaxis()->SetTitleSize(18);
+	  hist_p->GetXaxis()->SetLabelSize(16);
+	  hist_p->GetYaxis()->SetLabelSize(16);
+	  
+	  centerTitles(hist_p);
+	  setSumW2(hist_p);
+	  
+	  if(doEventNorm) hist_p->Scale(1./(Double_t)tree_p[hI]->GetEntries());
+	  
+	  canv_p->cd();
+	  pads[1]->cd();
+
+	  hist_p->SetTitle(inNickNames.at(hI).c_str());
+	  hist_p->DrawCopy("COLZ");
+	  gPad->SetLogz();
+	  gPad->RedrawAxis();
+	  gPad->SetTicks(0, 1);
+
+	  canv_p->cd();
+	  pads[2]->cd();
+	  hist_p->Divide(histDenom_p);
+	  hist_p->SetTitle((inNickNames.at(hI) + "/" + inNickNames.at(0)).c_str());
+	  hist_p->DrawCopy("COLZ");
+	  gPad->RedrawAxis();
+	  gPad->SetTicks(0, 1);       
+	  
+	  std::string saveName = histName + "_" + additionalNickName;
+	  saveName = saveName + "_" + dateStr + ".pdf";
+	  pdfList.push_back(saveName);
+	  quietSaveAs(canv_p, fullDirName + saveName);
+	  
+	  branchList.at(0).push_back(pairVars1.at(pI) + ":" + pairVars2.at(pI) + "," + inNickNames.at(hI) + "/" + inNickNames.at(0));
+	  
+	  delete hist_p;
+	  for(Int_t i = 0; i < nPads; ++i){
+	    delete pads[i];
+	  }
+	  delete canv_p;
+	}
+
+	delete histDenom_p;
       }
     }
   
