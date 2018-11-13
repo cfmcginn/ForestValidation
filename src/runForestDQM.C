@@ -466,6 +466,20 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
 }
 
 
+double getNonZeroTH2Min(TH2* inHist_p)
+{
+  double nonZeroTH2Min = inHist_p->GetBinContent(1, 1);
+
+  for(Int_t bIX = 0; bIX < inHist_p->GetNbinsX()+1; ++bIX){
+    for(Int_t bIY = 0; bIY < inHist_p->GetNbinsY()+1; ++bIY){
+      if(inHist_p->GetBinContent(bIX+1, bIY+1) <= 0) continue;
+      if(nonZeroTH2Min > inHist_p->GetBinContent(bIX+1, bIY+1)) nonZeroTH2Min = inHist_p->GetBinContent(bIX+1, bIY+1);
+    }
+  }
+
+  return nonZeroTH2Min;
+}
+
 int runForestDQM(std::vector<std::string> inFileNames, const std::string additionalNickName, std::vector<std::string> inNickNames, const std::string treeSelect = "", const Bool_t doEventNorm = false, const Int_t eventCountOverride = -1, const std::string commaSeparatedPairList = "")
 {
   std::string globalYStrTemp = "Counts";
@@ -1193,6 +1207,9 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
     
       if(doEventNorm) histDenom_p->Scale(1./(Double_t)tree_p[0]->GetEntries());
       
+      Double_t getNonZeroTH2MinDenom = getNonZeroTH2Min(histDenom_p);
+      histDenom_p->SetMinimum(getNonZeroTH2MinDenom/3.);
+      
       if(nFiles <= 1){
 	std::cout << "Single file not yet implemented" << std::endl;
       }
@@ -1257,11 +1274,15 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	  setSumW2(hist_p);
 	  
 	  if(doEventNorm) hist_p->Scale(1./(Double_t)tree_p[hI]->GetEntries());
-	  
+
+	  Double_t getNonZeroTH2MinNum = getNonZeroTH2Min(hist_p);
+	  hist_p->SetMinimum(getNonZeroTH2MinNum/3.);
+
 	  canv_p->cd();
 	  pads[1]->cd();
 
 	  hist_p->SetTitle(inNickNames.at(hI).c_str());
+
 	  hist_p->DrawCopy("COLZ");
 	  gPad->SetLogz();
 	  gPad->RedrawAxis();
@@ -1270,6 +1291,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	  canv_p->cd();
 	  pads[2]->cd();
 	  hist_p->Divide(histDenom_p);
+	  gPad->SetLogz(0);
 	  hist_p->SetTitle((inNickNames.at(hI) + "/" + inNickNames.at(0)).c_str());
 	  hist_p->DrawCopy("COLZ");
 	  gPad->RedrawAxis();
