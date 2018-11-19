@@ -1,13 +1,15 @@
 //cpp dependencies
 #include <iostream>
-#include <string>
 #include <map>
+#include <string>
 
 //ROOT dependencies
-#include "TFile.h"
-#include "TTree.h"
 #include "TDatime.h"
 #include "TDirectoryFile.h"
+#include "TFile.h"
+#include "TLeaf.h"
+#include "TMath.h"
+#include "TTree.h"
 
 //local dependencies
 #include "include/checkMakeDir.h"
@@ -15,18 +17,80 @@
 #include "include/returnRootFileContentsList.h"
 #include "include/runLumiEventKey.h"
 
-int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttreeSelection, const Int_t nEvtToKeep = -1, const std::string commaSeparatedRLEList = "", std::string hltBranchSel = "")
+int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttreeSelection, const Int_t nEvtToKeep = -1, const Int_t nEvtToStart = 0, const std::string commaSeparatedRLEList = "", std::string hltBranchSel = "", std::string commaSepCuts = "")
 {
   if(inFileName.size() == 0){
     std::cout << "Given inFileName \'" << inFileName << "\' is invalid. return 1." << std::endl;
     return 1;
   }
-  /*
-  if(!checkFile(inFileName) || inFileName.find(".root") == std::string::npos){
-    std::cout << "Given inFileName \'" << inFileName << "\' is invalid. return 1." << std::endl;
-    return 1;
+    
+  std::vector<std::string> cutVar;
+  std::vector<std::string> cutSign;
+  std::vector<std::string> cutVal;
+  std::vector<int> cutVarTreePos;
+  std::vector<std::string> cutVarStr;
+
+  if(commaSepCuts.size() != 0){
+    if(commaSepCuts.substr(commaSepCuts.size()-1, 1).find(",") == std::string::npos) commaSepCuts = commaSepCuts + ",";
+
+    while(commaSepCuts.find(",") != std::string::npos){
+      std::string tempStr = commaSepCuts.substr(0, commaSepCuts.find(","));
+      while(tempStr.find(" ") != std::string::npos){
+	tempStr.replace(tempStr.find(" "), 1, "");
+      }
+      
+      std::string tempCutVar = "";
+      std::string tempCutSign = "";
+      std::string tempCutVal = "";
+      std::string tempCutVarStr = "";
+
+      if(tempStr.find("==") != std::string::npos){
+	tempCutSign = "==";
+	tempCutVarStr = "EQ";
+      }
+      else if(tempStr.find("!=") != std::string::npos){
+	tempCutSign = "!=";
+	tempCutVarStr = "NE";
+      }
+      else if(tempStr.find(">=") != std::string::npos){
+	tempCutSign = ">=";
+	tempCutVarStr = "GE";
+      }
+      else if(tempStr.find(">") != std::string::npos){
+	tempCutSign = ">";
+	tempCutVarStr = "GT";
+      }
+      else if(tempStr.find("<=") != std::string::npos){
+	tempCutSign = "<=";
+	tempCutVarStr = "LE";
+      }
+      else if(tempStr.find("<") != std::string::npos){
+	tempCutSign = "<";
+	tempCutVarStr = "LT";
+      }
+      
+      if(tempCutSign.size() == 0){
+	std::cout << "Cut \'" << tempStr << "\' contains no valid comparison. continue" << std::endl;
+      }
+      else{
+	tempCutVar = tempStr.substr(0, tempStr.find(tempCutSign));
+	tempStr.replace(0, tempStr.find(tempCutSign)+tempCutSign.size(), "");
+	tempCutVal = tempStr;
+	
+	cutVar.push_back(tempCutVar);
+	cutSign.push_back(tempCutSign);
+	cutVal.push_back(tempCutVal);
+	cutVarTreePos.push_back(-1);
+	
+	cutVarStr.push_back(tempCutVar + tempCutVarStr + tempCutVal);
+      }
+      
+      commaSepCuts.replace(0, commaSepCuts.find(",")+1, "");
+    }
   }
-  */
+
+  std::vector<int> varTreePos;
+
   TDatime* date = new TDatime();
   const std::string dateStr = std::to_string(date->GetDate());
   delete date;
@@ -90,7 +154,7 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
   std::map<unsigned long long, bool> rleMap;
   if(commaSeparatedRLEList.size() != 0){
     std::string commaSeparatedRLEListCopy = commaSeparatedRLEList;
-    if(commaSeparatedRLEListCopy.substr(commaSeparatedRLEListCopy.size()-1,1).find(",") == std::string::npos) commaSeparatedRLEListCopy = commaSeparatedRLEListCopy = ",";
+    if(commaSeparatedRLEListCopy.substr(commaSeparatedRLEListCopy.size()-1,1).find(",") == std::string::npos) commaSeparatedRLEListCopy = commaSeparatedRLEListCopy + ",";
 
     while(commaSeparatedRLEListCopy.find(",") != std::string::npos){
       std::string rleStr = commaSeparatedRLEListCopy.substr(0,commaSeparatedRLEListCopy.find(","));
@@ -112,13 +176,30 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
   std::string nEvtKeepStr = "nEvtAll";
   if(nEvtToKeep >= 0) nEvtKeepStr = "nEvt" + std::to_string(nEvtToKeep);
 
+  std::string nEvtStartStr = "nEvtStart0";
+  if(nEvtToStart >= 0) nEvtStartStr = "nEvtStart" + std::to_string(nEvtToStart);
+
   std::string rleStr = "NoRLESkim";
   if(commaSeparatedRLEList.size() != 0) rleStr = "RLESkim";
+
+  std::string cutStr = "NoCut";
+  if(cutVar.size() != 0){
+    cutStr = "Cut";
+    for(int cI = 0; cI < TMath::Min(2, (int)cutVar.size()); ++cI){
+      cutStr = cutStr + "_" + cutVarStr.at(cI);
+    }
+    while(cutStr.find(".") != std::string::npos){
+      cutStr.replace(cutStr.find("."), 1, "p");
+    }
+    while(cutStr.find("-") != std::string::npos){
+      cutStr.replace(cutStr.find("-"), 1, "Neg");
+    }
+  }
 
   std::string outFileName = inFileName;
   while(outFileName.find("/") != std::string::npos){outFileName.replace(0, outFileName.find("/")+1, "");}
   if(outFileName.find(".") != std::string::npos) outFileName = outFileName.substr(0, outFileName.find("."));
-  outFileName = "output/" + dateStr + "/" + outFileName + "_TTreeSkim_" + nEvtKeepStr + "_" + rleStr  + "_" + dateStr + ".root";
+  outFileName = "output/" + dateStr + "/" + outFileName + "_TTreeSkim_" + nEvtKeepStr + "_" + nEvtStartStr + "_" + rleStr  + "_" + cutStr + "_" + dateStr + ".root";
 
   TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
   const Int_t nTrees = listOfTrees.size();
@@ -135,7 +216,6 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
     }
     else outDirs_p[tI] = (TDirectoryFile*)outFile_p->mkdir(dirName.c_str());
   }
-
 
   inFile_p = TFile::Open(mntToXRootdFileString(inFileName).c_str(), "READ");  
 
@@ -176,11 +256,27 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
     treeNEntries[tI] = trees_p[tI]->GetEntries();
     maxNEntries = TMath::Max(maxNEntries, treeNEntries[tI]);
     std::string dirName = listOfTrees.at(tI).substr(0, listOfTrees.at(tI).find("/"));
+    std::string treeName = listOfTrees.at(tI);
+    treeName.replace(0, treeName.find("/")+1, "");
     outFile_p->cd(dirName.c_str());
+
+    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+      if(cutVarTreePos.at(cI) >= 0) continue;
+
+      TObjArray* branches = (TObjArray*)trees_p[tI]->GetListOfBranches();
+      for(Int_t bI = 0; bI < branches->GetEntries(); ++bI){
+	std::string branch = branches->At(bI)->GetName();
+	if(isStrSame(branch, cutVar.at(cI))){
+	  std::cout << "CUT VAR FOUND: " << cutVar.at(cI) << ", " << branch << ", " << listOfTrees.at(tI) << std::endl;
+	  cutVarTreePos.at(cI) = tI;
+	  break;
+	}
+      }
+    }
     
     if(tI != hltTreePos || !doSpecialHLT) outTrees_p[tI] = trees_p[tI]->CloneTree(0);
     else{
-      trees_p[tI]->SetBranchStatus("*", 0);
+      //      trees_p[tI]->SetBranchStatus("*", 0);
       trees_p[tI]->SetBranchStatus("Run", 1);
       trees_p[tI]->SetBranchStatus("LumiBlock", 1);
       trees_p[tI]->SetBranchStatus("Event", 1);
@@ -195,11 +291,11 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
 	trees_p[tI]->SetBranchAddress(hltBranchesToKeep.at(bI).c_str(), &(hltBranchVals.at(bI)));
       }
 
-      outTrees_p[tI] = new TTree(listOfTrees.at(tI).c_str(), "");
+      outTrees_p[tI] = new TTree(treeName.c_str(), "");
 
       outTrees_p[tI]->Branch("Run", &runHLT_, "Run/I");
       outTrees_p[tI]->Branch("LumiBlock", &lumiHLT_, "LumiBlock/I");
-      outTrees_p[tI]->Branch("Event", &eventHLT_, "Event/I");
+      outTrees_p[tI]->Branch("Event", &eventHLT_, "Event/l");
 
       for(unsigned int bI = 0; bI < hltBranchesToKeep.size(); ++bI){
 	outTrees_p[tI]->Branch(hltBranchesToKeep.at(bI).c_str(), &(hltBranchVals.at(bI)), (hltBranchesToKeep.at(bI) + "/I").c_str());
@@ -207,11 +303,11 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
     }
   }
 
-  if(hiTreeName.size()  != 0){
+  if(hiTreeName.size() != 0){
     if(hiTreePos < 0){
       hiTree_p = (TTree*)inFile_p->Get(hiTreeName.c_str());
 
-      hiTree_p->SetBranchStatus("*", 0);
+      //      hiTree_p->SetBranchStatus("*", 0);
       hiTree_p->SetBranchStatus("run", 1);
       hiTree_p->SetBranchStatus("lumi", 1);
       hiTree_p->SetBranchStatus("evt", 1);
@@ -230,7 +326,7 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
     if(hltTreePos < 0){
       hltTree_p = (TTree*)inFile_p->Get(hltTreeName.c_str());
 
-      hltTree_p->SetBranchStatus("*", 0);
+      //      hltTree_p->SetBranchStatus("*", 0);
       hltTree_p->SetBranchStatus("Run", 1);
       hltTree_p->SetBranchStatus("LumiBlock", 1);
       hltTree_p->SetBranchStatus("Event", 1);
@@ -245,14 +341,21 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
       trees_p[hltTreePos]->SetBranchAddress("Event", &eventHLT_);
     }
   }
+  
+  Int_t nEvtToStartTemp = nEvtToStart;
+  if(nEvtToStartTemp < 0) nEvtToStartTemp = 0;
+  else if(nEvtToStartTemp >= maxNEntries) nEvtToStartTemp = maxNEntries-1;
+
+  const Int_t startEntry = nEvtToStartTemp;
 
   Int_t nEvtToKeepTemp = nEvtToKeep;
   if(nEvtToKeep < 1)  nEvtToKeepTemp = maxNEntries;
-  const Int_t nEntries = TMath::Min(maxNEntries, nEvtToKeepTemp);
-  const Int_t nDiv = TMath::Max(1, nEntries/20);
-
+  const Int_t nEntries = TMath::Min(maxNEntries, nEvtToKeepTemp + startEntry);
+  const Int_t nDiv = TMath::Max(1, (nEntries - startEntry)/20);
+  
+  
   std::cout << "Processing " << nEntries << " events..." << std::endl;
-  for(Int_t entry = 0; entry < nEntries; ++entry){
+  for(Int_t entry = startEntry; entry < nEntries; ++entry){
     if(entry%nDiv == 0) std::cout << " Entry " << entry << "/" << nEntries << "..." << std::endl;
 
     if(commaSeparatedRLEList.size() != 0){
@@ -272,6 +375,34 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
       }
     }
 
+    bool keepEvent = true;
+    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+      if(cutVarTreePos.at(cI) < 0) continue;
+
+      trees_p[cutVarTreePos.at(cI)]->GetEntry(entry);
+      
+      if(isStrSame(cutSign.at(cI), "==")){
+	keepEvent = keepEvent && std::stoi(cutVal.at(cI)) == trees_p[cutVarTreePos.at(cI)]->GetLeaf(cutVar.at(cI).c_str())->GetValue();
+      }
+      else if(isStrSame(cutSign.at(cI), "!=")){
+	keepEvent = keepEvent && std::stoi(cutVal.at(cI)) != trees_p[cutVarTreePos.at(cI)]->GetLeaf(cutVar.at(cI).c_str())->GetValue();
+      }
+      else if(isStrSame(cutSign.at(cI), ">=")){
+	keepEvent = keepEvent && trees_p[cutVarTreePos.at(cI)]->GetLeaf(cutVar.at(cI).c_str())->GetValue() >= std::stod(cutVal.at(cI));
+      }
+      else if(isStrSame(cutSign.at(cI), ">")){
+	keepEvent = keepEvent &&  trees_p[cutVarTreePos.at(cI)]->GetLeaf(cutVar.at(cI).c_str())->GetValue() > std::stod(cutVal.at(cI));
+      }
+      else if(isStrSame(cutSign.at(cI), "<=")){
+	keepEvent = keepEvent &&  trees_p[cutVarTreePos.at(cI)]->GetLeaf(cutVar.at(cI).c_str())->GetValue() <= std::stod(cutVal.at(cI));
+      }
+      else if(isStrSame(cutSign.at(cI), "<")){
+	keepEvent = keepEvent && trees_p[cutVarTreePos.at(cI)]->GetLeaf(cutVar.at(cI).c_str())->GetValue() < std::stod(cutVal.at(cI));
+      }
+    }
+
+    if(!keepEvent) continue;
+
     for(Int_t tI = 0; tI < nTrees; ++tI){
       if(entry < treeNEntries[tI]) trees_p[tI]->GetEntry(entry);
     }
@@ -288,8 +419,10 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
   
   for(Int_t tI = 0; tI < nTrees; ++tI){
     std::string dirName = listOfTrees.at(tI).substr(0, listOfTrees.at(tI).find("/"));
+    outFile_p->cd();
     outFile_p->cd(dirName.c_str());
     outTrees_p[tI]->Write("", TObject::kOverwrite);
+
     delete outTrees_p[tI];
   }
 
@@ -303,8 +436,8 @@ int forestTTreeSelect(const std::string inFileName, std::vector<std::string> ttr
 
 int main(int argc, char* argv[])
 {
-  if(argc < 3 || argc > 6){
-    std::cout << "Usage: ./bin/forestTTreeSelect.exe <inFileName> <commaSeparatedTreeList> <opt-nEvtToKeep> <commaSeparatedRLEList> <hltBranchSel>. return 1" << std::endl;
+  if(argc < 3 || argc > 8){
+    std::cout << "Usage: ./bin/forestTTreeSelect.exe <inFileName> <commaSeparatedTreeList> <opt-nEvtToKeep> <opt-nEvtToStart> <commaSeparatedRLEList> <hltBranchSel> <opt-commaSepCuts>. return 1" << std::endl;
     return 1;
   }
 
@@ -319,10 +452,17 @@ int main(int argc, char* argv[])
     }
   }
 
+  std::cout << "Input args: " << std::endl;
+  for(Int_t aI = 1; aI < argc; ++aI){
+    std::cout << "argv[" << aI << "]: " << argv[aI] << std::endl;
+  }
+
   int retVal = 0;
   if(argc == 3) retVal += forestTTreeSelect(argv[1], argv2Vect);
   else if(argc == 4) retVal += forestTTreeSelect(argv[1], argv2Vect, std::stoi(argv[3]));
-  else if(argc == 5) retVal += forestTTreeSelect(argv[1], argv2Vect, std::stoi(argv[3]), argv[4]);
-  else if(argc == 6) retVal += forestTTreeSelect(argv[1], argv2Vect, std::stoi(argv[3]), argv[4], argv[5]);
+  else if(argc == 5) retVal += forestTTreeSelect(argv[1], argv2Vect, std::stoi(argv[3]), std::stoi(argv[4]));
+  else if(argc == 6) retVal += forestTTreeSelect(argv[1], argv2Vect, std::stoi(argv[3]), std::stoi(argv[4]), argv[5]);
+  else if(argc == 7) retVal += forestTTreeSelect(argv[1], argv2Vect, std::stoi(argv[3]), std::stoi(argv[4]), argv[5], argv[6]);
+  else if(argc == 8) retVal += forestTTreeSelect(argv[1], argv2Vect, std::stoi(argv[3]), std::stoi(argv[4]), argv[5], argv[6], argv[7]);
   return retVal;
 }
