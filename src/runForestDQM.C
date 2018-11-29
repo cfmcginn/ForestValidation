@@ -739,8 +739,8 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
   texFileName = texFileName + "_" + dateStr;
 
   std::string texTreeStr = "AllTrees";
-  if(treeSelect.size() != 0) texTreeStr = treeSelect;
-  while(texTreeStr.find("/") != std::string::npos){texTreeStr.replace(texTreeStr.find("/"), 1, "_");}
+  if(treeSelect.size() != 0) texTreeStr = "NotAllTrees";
+  //  while(texTreeStr.find("/") != std::string::npos){texTreeStr.replace(texTreeStr.find("/"), 1, "_");}
 
   std::string fullDirName = "pdfDir/" + dateStr + "/" + texFileName;
   while(fullDirName.substr(fullDirName.size()-1,1).find("_") != std::string::npos){fullDirName.replace(fullDirName.size()-1, 1, "");}
@@ -756,13 +756,35 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
   std::ofstream fileSubTex(texFileSubName.c_str());
   doInterstitialTexSlide(&(fileSubTex), "PLOTS");
 
+  std::string treeSelectCopy = treeSelect;
+  std::vector<std::string> treesToSelect;
+  while(treeSelectCopy.find(",") != std::string::npos){
+    treesToSelect.push_back(treeSelectCopy.substr(0, treeSelectCopy.find(",")));
+    treeSelectCopy.replace(0, treeSelectCopy.find(",")+1, "");
+  }
+  if(treeSelectCopy.size() != 0) treesToSelect.push_back(treeSelectCopy);
 
   TFile* inFiles_p[nFiles];
   std::vector<std::vector<std::string > > fileTrees;
   for(Int_t fI = 0; fI < nFiles; ++fI){
     inFiles_p[fI] = TFile::Open(mntToXRootdFileString(inFileNames.at(fI)).c_str(), "READ");
-    std::vector<std::string> tempTrees = returnRootFileContentsList(inFiles_p[fI], "TTree", treeSelect);
+    std::vector<std::string> tempTrees = returnRootFileContentsList(inFiles_p[fI], "TTree");
     removeVectorDuplicates(&tempTrees);
+ 
+    unsigned int pos = 0;
+    while(tempTrees.size() > pos){
+      bool isGood = false;
+      for(unsigned int tI = 0; tI < treesToSelect.size(); ++tI){
+	if(isStrSame(treesToSelect.at(tI), tempTrees.at(pos))){
+	  isGood = true;
+	  break;
+	}
+      }
+
+      if(isGood) ++pos;
+      else tempTrees.erase(tempTrees.begin()+pos);
+    }
+
     dumpTreeNames(inFileNames.at(fI), tempTrees);
     fileTrees.push_back(tempTrees);
     misMatchedTrees.push_back({});
