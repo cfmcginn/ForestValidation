@@ -472,12 +472,12 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
     (*fileTex) << "\\item{Branches}" << std::endl;
 
     (*fileTex) << "\\begin{columns}" << std::endl;
-    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\fontsize{3}{3}\\selectfont" << std::endl;
 
     (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
-    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\fontsize{3}{3}\\selectfont" << std::endl;
     (*fileTex) << "\\begin{itemize}" << std::endl;
-    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\fontsize{3}{3}\\selectfont" << std::endl;
     if(branchVect1.at(tempI).size() != 0){
 
       for(unsigned int vI = 0; vI < branchVect1.at(tempI).size(); ++vI){
@@ -490,9 +490,9 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
     (*fileTex) << "\\end{column}" << std::endl;
 
     (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
-    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\fontsize{3}{3}\\selectfont" << std::endl;
     (*fileTex) << "\\begin{itemize}" << std::endl;
-    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\fontsize{3}{3}\\selectfont" << std::endl;
     if(branchVect2.at(tempI).size() != 0){
       
       for(unsigned int vI = 0; vI < branchVect2.at(tempI).size(); ++vI){
@@ -506,9 +506,9 @@ void doBranchTexSlide(std::ofstream* fileTex, std::string inTreeName, std::vecto
     (*fileTex) << "\\end{column}" << std::endl;
 
     (*fileTex) << "\\begin{column}{0.32\\textwidth}" << std::endl;
-    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\fontsize{3}{3}\\selectfont" << std::endl;
     (*fileTex) << "\\begin{itemize}" << std::endl;
-    (*fileTex) << "\\fontsize{1}{1}\\selectfont" << std::endl;
+    (*fileTex) << "\\fontsize{3}{3}\\selectfont" << std::endl;
     if(branchVect3.at(tempI).size() != 0){
 
       for(unsigned int vI = 0; vI < branchVect3.at(tempI).size(); ++vI){
@@ -582,6 +582,10 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
   if(doEventNorm) globalYStrTemp = "#frac{1}{N_{evt}} Counts";
 
   const std::string globalYStr = globalYStrTemp;
+
+  const double divMax = 1.5;
+  const double divMin = 0.5;
+  const double divInt = divMax - divMin;
 
   const Int_t nFiles = inFileNames.size();
   const Int_t fileCap = 8;
@@ -1437,7 +1441,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	while(histName.find("/") != std::string::npos){histName.replace(histName.find("/"), 1, "_");}
 	histNames.push_back(histName);
       }
-    
+            
       TCanvas* canv_p = new TCanvas("temp", "temp", 450, 400);
       canv_p->SetTopMargin(0.01);
       canv_p->SetRightMargin(0.01);
@@ -1658,10 +1662,32 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
     
       for(Int_t fI = 1; fI < nFiles; ++fI){
 	tempHist_p[fI]->GetYaxis()->SetTitle(("All/" + inNickNames.at(0)).c_str());
-	tempHist_p[fI]->SetMaximum(2.);
-	tempHist_p[fI]->SetMinimum(0.);
+	tempHist_p[fI]->SetMaximum(divMax);
+	tempHist_p[fI]->SetMinimum(divMin);
+
 	if(fI == 1) tempHist_p[fI]->DrawCopy("E1 P");
 	else tempHist_p[fI]->DrawCopy("E1 P SAME");
+
+	for(Int_t bIX = 0; bIX < tempHist_p[fI]->GetXaxis()->GetNbins(); ++bIX){
+	  Double_t val = tempHist_p[fI]->GetBinContent(bIX+1);
+	  Double_t denom = tempHist_p[0]->GetBinContent(bIX+1);
+
+	  if(denom > TMath::Power(10, -20)){
+	    if(val < divMin){
+	      tempHist_p[fI]->SetBinContent(bIX+1, divMin + 0.00001);
+	      Double_t err = divInt*0.05*fI;
+	      tempHist_p[fI]->SetBinError(bIX+1, err);
+	    }
+	    else if(val > divMax){
+	      tempHist_p[fI]->SetBinContent(bIX+1, divMax - 0.00001);
+	      Double_t err = divInt*0.05*fI;
+	      tempHist_p[fI]->SetBinError(bIX+1, err);
+	    }
+	  }
+	}
+
+	tempHist_p[fI]->SetMarkerSize(0.000001);
+	tempHist_p[fI]->DrawCopy("E1 P SAME");
       }
 
       if(doLogX) gPad->SetLogx();
