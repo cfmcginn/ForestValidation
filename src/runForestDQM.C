@@ -267,7 +267,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileName
 
   (*fileTex) << std::endl;
 
-  (*fileTex) << "\\author[CM]{CMSHI Forest Validator}" << std::endl;
+  (*fileTex) << "\\author[CM]{ATLAS HI Validator}" << std::endl;
   (*fileTex) << "\\begin{document}" << std::endl;
 
   (*fileTex) << std::endl;
@@ -806,11 +806,13 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
   doFirstTexSlide(&fileTex, inFileNames, inNickNames, fileTrees.at(0), misMatchedTrees, eventCountOverride);
 
   std::vector<int>* intVect_p=NULL;
+  std::vector<bool>* boolVect_p=NULL;
   std::vector<short>* shortVect_p=NULL;
   std::vector<float>* floatVect_p=NULL;
   std::vector<double>* doubleVect_p=NULL;
 
   std::vector<int>* intVectCut_p=NULL;
+  std::vector<bool>* boolVectCut_p=NULL;
   std::vector<short>* shortVectCut_p=NULL;
   std::vector<float>* floatVectCut_p=NULL;
   std::vector<double>* doubleVectCut_p=NULL;
@@ -1037,6 +1039,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	TLeaf* tempLeafCut = NULL;
 	std::string tempClassTypeCut = "";
 	bool cutIsInt = false;
+	bool cutIsBool = false;
 	bool cutIsShort = false;
 	bool cutIsDouble = false;
 	bool cutIsFloat = false;
@@ -1045,6 +1048,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	  tempLeafCut = (TLeaf*)tree_p[0]->GetLeaf(cutVar.c_str());
 	  tempClassTypeCut = tempLeafCut->GetTypeName();
 	  cutIsInt = tempClassTypeCut.find("int") != std::string::npos;
+	  cutIsBool = tempClassTypeCut.find("bool") != std::string::npos;
 	  cutIsShort = tempClassTypeCut.find("short") != std::string::npos;
 	  cutIsFloat = tempClassTypeCut.find("float") != std::string::npos;
 	  cutIsDouble = tempClassTypeCut.find("double") != std::string::npos;
@@ -1062,6 +1066,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	      tree_p[fI]->SetBranchStatus(cutVar.c_str(), 1);
 
 	      if(cutIsInt) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &intVectCut_p);
+	      else if(cutIsBool) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &boolVectCut_p);
 	      else if(cutIsShort) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &shortVectCut_p);
 	      else if(cutIsDouble) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &doubleVectCut_p);
 	      else if(cutIsFloat) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &floatVectCut_p);
@@ -1084,6 +1089,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 		  }
 		  else{
 		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
 		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
 		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
 		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
@@ -1125,6 +1131,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 		  }
 		  else{
 		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
 		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
 		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
 		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
@@ -1145,6 +1152,103 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	    }
 	  }
 	}
+	else if(tempClassType.find("bool") != std::string::npos){
+	  for(Int_t fI = 0; fI < nFiles; ++fI){
+	    tree_p[fI]->SetBranchStatus("*", 0);
+	    tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
+	    
+	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &boolVect_p);
+
+	    if(isBranchCut && !isStrSame(cutVar, branchList.at(0).at(bI1))){
+	      tree_p[fI]->SetBranchStatus(cutVar.c_str(), 1);
+
+	      if(cutIsInt) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &intVectCut_p);
+	      else if(cutIsBool) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &boolVectCut_p);
+	      else if(cutIsShort) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &shortVectCut_p);
+	      else if(cutIsDouble) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &doubleVectCut_p);
+	      else if(cutIsFloat) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &floatVectCut_p);
+	    }
+	    
+	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    
+	    int startPos = 0;
+	    while(!isFirstFound && startPos < nEntries1){
+	      tree_p[fI]->GetEntry(startPos);
+	      
+	      ++startPos;
+
+	      for(unsigned int vI = 0; vI < boolVect_p->size(); ++vI){
+		bool passes = true;
+
+		if(isBranchCut){
+		  if(isStrSame(cutVar, branchList.at(0).at(bI1))){
+		    passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr);
+		  }
+		  else{
+		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
+		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
+		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
+		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
+		  }
+		}
+
+		if(!passes) continue;
+		
+		if(!isFirstFound){
+		  minVal = boolVect_p->at(vI);
+		  maxVal = boolVect_p->at(vI);
+		  minValFile = inFileNames.at(fI);
+		  maxValFile = inFileNames.at(fI);
+		}
+		else{
+		  if(boolVect_p->at(vI) > maxVal){
+		    maxVal = boolVect_p->at(vI);
+		    maxValFile = inFileNames.at(fI);		  
+		  }
+		  if(boolVect_p->at(vI) < minVal){
+		    minVal = boolVect_p->at(vI);
+		    minValFile = inFileNames.at(fI);		  
+		  }
+		}
+
+		isFirstFound = true;
+	      }
+	    }
+	  	  
+	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
+	      tree_p[fI]->GetEntry(entry);
+
+	      for(unsigned int vI = 0; vI < boolVect_p->size(); ++vI){
+		bool passes = true;
+
+		if(isBranchCut){
+		  if(isStrSame(cutVar, branchList.at(0).at(bI1))){
+		    passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr);
+		  }
+		  else{
+		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
+		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
+		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
+		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
+		  }
+		}
+
+		if(!passes) continue;
+		
+		if(boolVect_p->at(vI) > maxVal){
+		  maxVal = boolVect_p->at(vI);
+		  maxValFile = inFileNames.at(fI);		  
+		}
+		if(boolVect_p->at(vI) < minVal){
+		  minVal = boolVect_p->at(vI);
+		  minValFile = inFileNames.at(fI);		  
+		}
+	      }
+	    }
+	  }
+	}
 	else if(tempClassType.find("short") != std::string::npos){
 	  for(Int_t fI = 0; fI < nFiles; ++fI){
 	    tree_p[fI]->SetBranchStatus("*", 0);
@@ -1156,6 +1260,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	      tree_p[fI]->SetBranchStatus(cutVar.c_str(), 1);
 
 	      if(cutIsInt) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &intVectCut_p);
+	      else if(cutIsBool) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &boolVectCut_p);
 	      else if(cutIsShort) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &shortVectCut_p);
 	      else if(cutIsDouble) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &doubleVectCut_p);
 	      else if(cutIsFloat) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &floatVectCut_p);
@@ -1177,7 +1282,8 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 		    passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr);
 		  }
 		  else{
-		    if(cutIsInt) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
+		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
 		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
 		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
 		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
@@ -1219,6 +1325,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 		  }
 		  else{
 		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
 		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
 		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
 		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
@@ -1250,6 +1357,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	      tree_p[fI]->SetBranchStatus(cutVar.c_str(), 1);
 
 	      if(cutIsInt) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &intVectCut_p);
+	      else if(cutIsBool) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &boolVectCut_p);
 	      else if(cutIsShort) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &shortVectCut_p);
 	      else if(cutIsDouble) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &doubleVectCut_p);
 	      else if(cutIsFloat) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &floatVectCut_p);
@@ -1272,6 +1380,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 		  }
 		  else{
 		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
 		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
 		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
 		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
@@ -1313,6 +1422,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 		  }
 		  else{
 		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
 		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
 		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
 		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
@@ -1344,6 +1454,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 	      tree_p[fI]->SetBranchStatus(cutVar.c_str(), 1);
 
 	      if(cutIsInt) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &intVectCut_p);
+	      else if(cutIsBool) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &boolVectCut_p);
 	      else if(cutIsShort) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &shortVectCut_p);
 	      else if(cutIsDouble) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &doubleVectCut_p);
 	      else if(cutIsFloat) tree_p[fI]->SetBranchAddress(cutVar.c_str(), &floatVectCut_p);
@@ -1366,6 +1477,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 		  }
 		  else{
 		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
 		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
 		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
 		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
@@ -1407,6 +1519,7 @@ int runForestDQM(std::vector<std::string> inFileNames, const std::string additio
 		  }
 		  else{
 		    if(cutIsInt) passes = valPassesCut((Long64_t)intVectCut_p->at(vI), cutStr);
+		    else if(cutIsBool) passes = valPassesCut((Long64_t)boolVectCut_p->at(vI), cutStr);
 		    else if(cutIsShort) passes = valPassesCut((Long64_t)shortVectCut_p->at(vI), cutStr);
 		    else if(cutIsDouble) passes = valPassesCut(doubleVectCut_p->at(vI), cutStr);
 		    else if(cutIsFloat) passes = valPassesCut((Double_t)floatVectCut_p->at(vI), cutStr);
