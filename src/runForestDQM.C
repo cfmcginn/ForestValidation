@@ -100,44 +100,92 @@ std::string getCompString(std::string inStr)
 }
 
 
-bool valPassesCut(Double_t val, std::string cutStr)
+bool valPassesCut(Double_t val, std::string cutStr, bool isCutAbs)
 {
   std::string compStr = getCompString(cutStr);
   if(compStr.find("==") != std::string::npos || compStr.find("!=") != std::string::npos){
     Int_t cutVal = std::stoi(cutStr.substr(cutStr.find(compStr) + compStr.size(), cutStr.size()));
     
-    if(compStr.find("==") != std::string::npos) return val == cutVal;
-    else return val != cutVal;
+    if(compStr.find("==") != std::string::npos){
+      bool toReturn = val == cutVal;
+      if(isCutAbs) toReturn = toReturn || val == -1*cutVal;
+      return toReturn;
+    }
+    else{
+      bool toReturn = val != cutVal;
+      if(isCutAbs) toReturn = toReturn && (val != -1*cutVal); 
+      return toReturn;
+    }
   }
   else{
     Double_t cutVal = std::stod(cutStr.substr(cutStr.find(compStr) + compStr.size(), cutStr.size()));
 
-    if(compStr.find(">=") != std::string::npos) return val >= cutVal;
-    else if(compStr.find(">") != std::string::npos) return val > cutVal;
-    else if(compStr.find("<=") != std::string::npos) return val <= cutVal;
-    else return val < cutVal;
+    if(compStr.find(">=") != std::string::npos){
+      bool toReturn = val >= cutVal;
+      if(isCutAbs) toReturn = toReturn || -1.0*val >= cutVal;
+      return toReturn;
+    }
+    else if(compStr.find(">") != std::string::npos){
+      bool toReturn = val > cutVal;
+      if(isCutAbs) toReturn = toReturn || -1.0*val > cutVal;
+      return toReturn;
+    }
+    else if(compStr.find("<=") != std::string::npos){
+      bool toReturn = val <= cutVal;
+      if(isCutAbs) toReturn = toReturn && -1.0*val <= cutVal;
+      return toReturn;
+    }
+    else{
+      bool toReturn = val < cutVal;
+      if(isCutAbs) toReturn = toReturn && -1.0*val < cutVal;
+      return toReturn;
+    }
   }
 
   std::cout << "WARNING: VALPASSESCUT FAILED RETURN FALSE" << std::endl;
   return false;
 }
 
-bool valPassesCut(Long64_t val, std::string cutStr)
+bool valPassesCut(Long64_t val, std::string cutStr, bool isCutAbs)
 {
   std::string compStr = getCompString(cutStr);
   if(compStr.find("==") != std::string::npos || compStr.find("!=") != std::string::npos){
     Long64_t cutVal = std::stoi(cutStr.substr(cutStr.find(compStr) + compStr.size(), cutStr.size()));
     
-    if(compStr.find("==") != std::string::npos) return val == cutVal;
-    else return val != cutVal;
+    if(compStr.find("==") != std::string::npos){
+      bool toReturn = val == cutVal;
+      if(isCutAbs) toReturn = toReturn || val == -1*cutVal;      
+      return toReturn;
+    }
+    else{
+      bool toReturn = val != cutVal;
+      if(isCutAbs) toReturn = toReturn && (val != -1*cutVal); 
+      return toReturn;
+    }
   }
   else{
     Double_t cutVal = std::stod(cutStr.substr(cutStr.find(compStr) + compStr.size(), cutStr.size()));
 
-    if(compStr.find(">=") != std::string::npos) return val >= cutVal;
-    else if(compStr.find(">") != std::string::npos) return val > cutVal;
-    else if(compStr.find("<=") != std::string::npos) return val <= cutVal;
-    else return val < cutVal;
+    if(compStr.find(">=") != std::string::npos){
+      bool toReturn = val >= cutVal;
+      if(isCutAbs) toReturn = toReturn || -1.0*val >= cutVal;
+      return toReturn;
+    }
+    else if(compStr.find(">") != std::string::npos){
+      bool toReturn = val > cutVal;
+      if(isCutAbs) toReturn = toReturn || -1.0*val > cutVal; 
+      return toReturn;
+    }
+    else if(compStr.find("<=") != std::string::npos){
+      bool toReturn = val <= cutVal;
+      if(isCutAbs) toReturn = toReturn && -1.0*val <= cutVal;
+      return toReturn;
+    }
+    else{
+      bool toReturn = val < cutVal;
+      if(isCutAbs) toReturn = toReturn && -1.0*val < cutVal;      
+      return toReturn;
+    }
   }
 
   std::cout << "WARNING: VALPASSESCUT FAILED RETURN FALSE" << std::endl;
@@ -783,7 +831,9 @@ int runForestDQM(std::string inConfigName = "")
 
   std::map<std::string, std::vector<std::string> > mapFromVarToCut;
   std::map<std::string, std::vector<std::string> > mapFromVarToCutVar;
-
+  std::map<std::string, std::vector<bool> > mapFromVarToIsCutAbs;
+  std::map<std::string, std::vector<bool> > mapFromVarToIsCutLT;
+  
   if(commaSeparatedCutList.size() != 0){
     for(unsigned int cI = 0; cI < commaSeparatedCutList.size(); ++cI){
       std::string varStr = commaSeparatedCutList[cI];
@@ -797,12 +847,27 @@ int runForestDQM(std::string inConfigName = "")
 
       mapFromVarToCut[var1] = {};
       mapFromVarToCutVar[var1] = {};
+      mapFromVarToIsCutAbs[var1] = {};
+      mapFromVarToIsCutLT[var1] = {};
       
       varStr.replace(0, varStr.find(":")+1, "");
 
       if(varStr.substr(varStr.size()-1,1).find(",") == std::string::npos) varStr = varStr+",";
       while(varStr.find(",") != std::string::npos){
 	std::string varStrCopy = varStr.substr(0, varStr.find(","));
+
+	if(varStrCopy.find("abs(") != std::string::npos){
+	  mapFromVarToIsCutAbs[var1].push_back(true);
+	  varStrCopy.replace(0,4,"");
+	  varStrCopy.replace(varStrCopy.find(")"), 1, "");
+	}
+	else mapFromVarToIsCutAbs[var1].push_back(false);
+
+	if(varStrCopy.find("<") != std::string::npos){
+	  mapFromVarToIsCutLT[var1].push_back(true);
+	}
+	else mapFromVarToIsCutLT[var1].push_back(false);
+
 	std::string var2 = varStrCopy;
 	
 	mapFromVarToCut[var1].push_back(var2);
@@ -927,9 +992,9 @@ int runForestDQM(std::string inConfigName = "")
 
   //Hardcoding
   //  fileTrees = {{"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}};
-  fileTrees = {{"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}};
+  //  fileTrees = {{"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}};
   //  fileTrees = {{"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}};
-  //fileTrees = {{"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}};
+  fileTrees = {{"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}};
   std::cout << "Checking tree strings match..." << std::endl;
 
   for(Int_t fI = 0; fI < nFiles-1; ++fI){
@@ -1086,14 +1151,15 @@ int runForestDQM(std::string inConfigName = "")
       bool firstFill = true;
       std::vector<std::string> cutStr;
       std::vector<std::string> cutVar;
-      std::vector<int> cutVarLastPos;
-
-      
+      std::vector<bool> isCutAbs;
+      std::vector<int> cutVarLastPos;      
       std::vector<bool> doLong;
+
       if(isBranchCut){
 	cutStr = mapFromVarToCut[branchList.at(0).at(bI1)];
 	cutVar = mapFromVarToCutVar[branchList.at(0).at(bI1)];
-		
+	isCutAbs = mapFromVarToIsCutAbs[branchList.at(0).at(bI1)];
+	
 	for(unsigned int cI = 0; cI < cutStr.size(); ++cI){
 	  if(cutStr[cI].find("==") != std::string::npos || cutStr[cI].find("==") != std::string::npos) doLong.push_back(true);
 	  else doLong.push_back(false);
@@ -1194,12 +1260,12 @@ int runForestDQM(std::string inConfigName = "")
 
 		  Long64_t cutValLong64 = tree_p[fI]->GetLeaf(cutVar[cI].c_str())->GetValueLong64(lI);
 		  Double_t cutValDouble = tree_p[fI]->GetLeaf(cutVar[cI].c_str())->GetValue(lI);
-
-		  if(doLong[cI]) cutPass = valPassesCut(cutValLong64, cutStr[cI]);
-		  else cutPass = valPassesCut(cutValDouble, cutStr[cI]);
-
-		  if(!cutPass) break;
- 		}
+		  		  
+		  if(doLong[cI]) cutPass = valPassesCut(cutValLong64, cutStr[cI], isCutAbs[cI]);
+		  else cutPass = valPassesCut(cutValDouble, cutStr[cI], isCutAbs[cI]);
+		  
+		  if(!cutPass) break;		  
+		}
 		
 		if(!cutPass) continue;
 		
@@ -1216,6 +1282,8 @@ int runForestDQM(std::string inConfigName = "")
 	      }
 	    }
 	  }
+
+	  std::cout << "MAX VAL MIN VAL: " << maxVal << ", " << minVal << std::endl;
 
 	  //	  maxVal = TMath::Max(maxVal, tree_p[fI]->GetMaximum(branchList.at(0).at(bI1).c_str()));
 	  //	  minVal = TMath::Min(minVal, tree_p[fI]->GetMinimum(branchList.at(0).at(bI1).c_str()));
@@ -1294,19 +1362,19 @@ int runForestDQM(std::string inConfigName = "")
 		if(isBranchCut){
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)intVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut((Long64_t)intVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		      else if(cutIsFloat[cI]){
-			passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+			passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		      }
 		    }
-
-		    if(!passes) break;
+		    
+		    if(!passes) break;		    
 		  }
 		}
 
@@ -1344,14 +1412,14 @@ int runForestDQM(std::string inConfigName = "")
 
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)intVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut((Long64_t)intVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 
 		    if(!passes) break;
@@ -1409,14 +1477,14 @@ int runForestDQM(std::string inConfigName = "")
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
 		    
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 
 		    if(!passes) break;
@@ -1456,14 +1524,14 @@ int runForestDQM(std::string inConfigName = "")
 
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 
 		    if(!passes) break;
@@ -1521,14 +1589,14 @@ int runForestDQM(std::string inConfigName = "")
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
 
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 
 		    if(!passes) break;
@@ -1567,17 +1635,17 @@ int runForestDQM(std::string inConfigName = "")
 		if(isBranchCut){
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 
-		    if(!passes) break;
+		    if(!passes) break;		    
 		  }
 		}
 
@@ -1608,7 +1676,7 @@ int runForestDQM(std::string inConfigName = "")
 	      for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
 		if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
 		  tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
-		  
+
 		  if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
 		  else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
 		  else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
@@ -1632,14 +1700,14 @@ int runForestDQM(std::string inConfigName = "")
 		if(isBranchCut){
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Double_t)floatVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut((Double_t)floatVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    
 		    if(!passes) break;
@@ -1678,14 +1746,14 @@ int runForestDQM(std::string inConfigName = "")
 		if(isBranchCut){
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Double_t)floatVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut((Double_t)floatVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 
 		    if(!passes) break;
@@ -1742,14 +1810,14 @@ int runForestDQM(std::string inConfigName = "")
 		if(isBranchCut){
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut(doubleVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut(doubleVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 
 		    if(!passes) break;
@@ -1788,14 +1856,14 @@ int runForestDQM(std::string inConfigName = "")
 		if(isBranchCut){
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
 		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut(doubleVect_p->at(vI), cutStr[cI]);
+		      passes = valPassesCut(doubleVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI]);
+		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
 		    }
 
 		    if(!passes) break;
@@ -1974,16 +2042,32 @@ int runForestDQM(std::string inConfigName = "")
 		for(unsigned int cI = 0; cI < mapFromVarToCut[branchList.at(0).at(bI1)].size(); ++cI){
 		  //	  std::string cutVar = mapFromVarToCutVar[branchList.at(0).at(bI1)][cI];
 		  //		  tree_p[fI]->SetBranchStatus(cutVar.c_str(), 1);
-				
+
+		  bool isCutAbs = mapFromVarToIsCutAbs[branchList.at(0).at(bI1)][cI];
+
 		  
-		  cutString1 = cutString1 + mapFromVarToCut[branchList.at(0).at(bI1)][cI] + " && ";
+		  if(!isCutAbs){
+		    cutString1 = cutString1 + mapFromVarToCut[branchList.at(0).at(bI1)][cI] + " && ";
+		    cutString2 = cutString2 + mapFromVarToCut[branchList.at(0).at(bI1)][cI] + " && ";
+		  }
+		  else{
+		    std::string cutVar = mapFromVarToCutVar[branchList.at(0).at(bI1)][cI];
+		    std::string cutStr = mapFromVarToCut[branchList.at(0).at(bI1)][cI];
+
+		    cutStr.replace(cutStr.find(cutVar), cutVar.size(), ("TMath::Abs(" + cutVar + ")").c_str());
+		    cutString1 = cutString1 + cutStr + " && ";
+
+		    cutString2 = cutString2 + "Abs" + mapFromVarToCut[branchList.at(0).at(bI1)][cI] + " && ";
+		  }
 		}
 		if(cutString1.size() != 0) cutString1.replace(cutString1.size()-4, 4, "");
-		cutString2 = findAndReplaceCutTypes(cutString1);
+		if(cutString2.size() != 0) cutString2.replace(cutString2.size()-4, 4, "");
+
+		//Nice formatting for cutstring2
+		cutString2 = findAndReplaceCutTypes(cutString2);
 		while(cutString2.find(" && ") != std::string::npos){
 		  cutString2.replace(cutString2.find(" && "), 4, "_");
 		}
-
 		while(cutString2.find(".") != std::string::npos){cutString2.replace(cutString2.find("."), 1, "p");}
 	      }
 	    }
@@ -1991,6 +2075,7 @@ int runForestDQM(std::string inConfigName = "")
 	}     
 
 	histNames.at(fI) = histNames.at(fI) + "_" + cutString2 + "_h";
+	std::cout << histNames.at(fI) << std::endl;
 
 	tempHist_p[fI] = new TH1D(histNames.at(fI).c_str(), (";" + branchList.at(0).at(bI1) + ";" + globalYStr).c_str(), nBinsActual, bins);
 
