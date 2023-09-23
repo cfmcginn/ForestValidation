@@ -12,7 +12,7 @@ MKDIR_PDF=mkdir -p $(PWD)/pdfDir
 
 #programs to make
 
-all: mkdirBin mkdirPdf bin/runForestDQM.exe bin/checkEventSync.exe bin/checkAllTreesReadable.exe bin/checkForestEventSelection.exe bin/photonTreeCountCheck.exe bin/checkDuplicateEvents.exe bin/duplicateRemoval.exe bin/forestTTreeSelect.exe
+all: mkdirBin mkdirPdf bin/runForestDQM.exe bin/treeRLEMatcher.exe bin/checkEventSync.exe bin/checkAllTreesReadable.exe bin/checkForestEventSelection.exe bin/photonTreeCountCheck.exe bin/checkDuplicateEvents.exe bin/duplicateRemoval.exe bin/forestTTreeSelect.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -20,6 +20,9 @@ mkdirPdf:
 	$(MKDIR_PDF)
 bin/runForestDQM.exe: src/runForestDQM.C
 	$(CXX) $(CXXFLAGS) src/runForestDQM.C $(ROOT) -I $(PWD) -o bin/runForestDQM.exe 
+
+bin/treeRLEMatcher.exe: src/treeRLEMatcher.C
+	$(CXX) $(CXXFLAGS) src/treeRLEMatcher.C $(ROOT) -I $(PWD) -o bin/treeRLEMatcher.exe 
 
 bin/checkEventSync.exe: src/checkEventSync.C
 	$(CXX) $(CXXFLAGS) src/checkEventSync.C $(ROOT) -I $(PWD) -o bin/checkEventSync.exe
