@@ -257,7 +257,7 @@ std::string texFriendlyString(std::string inStr)
   return outStr;
 }
 
-void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileNames, std::vector<std::string> inNickNames, std::vector<std::string> goodTrees, std::vector<std::vector<std::string> > missingTrees, const Int_t eventCountOverride)
+void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileNames, std::vector<std::string> inNickNames, std::vector<std::string> goodTrees, std::vector<std::vector<std::string> > missingTrees, const Int_t eventCountOverride, const std::string footerLine)
 {
   TDatime date;
 
@@ -316,7 +316,7 @@ void doFirstTexSlide(std::ofstream* fileTex, std::vector<std::string> inFileName
 
   (*fileTex) << std::endl;
 
-  (*fileTex) << "\\author[CM]{CMS HI Forest Validator}" << std::endl;
+  (*fileTex) << "\\author[CM]{" << footerLine << "}" << std::endl;
   (*fileTex) << "\\begin{document}" << std::endl;
 
   (*fileTex) << std::endl;
@@ -664,6 +664,8 @@ int runForestDQM(std::string inConfigName = "")
     inNickNames.push_back(tempNickName);
   }
 
+  const std::string footerLine = config_p->GetValue("FOOTERLINE", "DEFAULT FOOTER LINE (SET IN CONFIG)");
+  
   //Keep treeselect as comma seperated list for now but switch to direct vector soon
   std::string treeSelect = "";
   for(unsigned int tI = 0; tI < 100; ++tI){
@@ -700,7 +702,6 @@ int runForestDQM(std::string inConfigName = "")
     }
   }
 
-
   //New Div min/max override
   std::map<std::string, double> divMinOverrideMap;
   std::map<std::string, double> divMaxOverrideMap;
@@ -733,6 +734,27 @@ int runForestDQM(std::string inConfigName = "")
       std::string varStr = nBinOverrideVal.substr(0, nBinOverrideVal.find(":"));
       std::string valStr = nBinOverrideVal.substr(nBinOverrideVal.find(":")+1, nBinOverrideVal.size());
       nBinOverrideMap[varStr] = std::stod(valStr);
+    }
+  }
+
+  //DOLOGX, LOGY Overrides
+  std::map<std::string, bool> doLogXOverrideMap, doLogYOverrideMap;
+  for(unsigned int i = 0; i < 1000; ++i){
+    std::string configStrX = "DOLOGX." + std::to_string(i);
+    std::string configStrY = "DOLOGY." + std::to_string(i);
+
+    std::string doLogXOverrideVal = config_p->GetValue(configStrX.c_str(), "");
+    if(doLogXOverrideVal.size() != 0){
+      std::string varStr = doLogXOverrideVal.substr(0, doLogXOverrideVal.find(":"));
+      std::string valStr = doLogXOverrideVal.substr(doLogXOverrideVal.find(":")+1, doLogXOverrideVal.size());
+      doLogXOverrideMap[varStr] = std::stod(valStr);
+    }
+    
+    std::string doLogYOverrideVal = config_p->GetValue(configStrX.c_str(), "");
+    if(doLogYOverrideVal.size() != 0){
+      std::string varStr = doLogYOverrideVal.substr(0, doLogYOverrideVal.find(":"));
+      std::string valStr = doLogYOverrideVal.substr(doLogYOverrideVal.find(":")+1, doLogYOverrideVal.size());
+      doLogYOverrideMap[varStr] = std::stod(valStr);
     }
   }
   
@@ -994,7 +1016,7 @@ int runForestDQM(std::string inConfigName = "")
   //  fileTrees = {{"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}};
   //  fileTrees = {{"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}};
   //  fileTrees = {{"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}};
-  fileTrees = {{"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}};
+    fileTrees = {{"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}};
   std::cout << "Checking tree strings match..." << std::endl;
 
   for(Int_t fI = 0; fI < nFiles-1; ++fI){
@@ -1004,7 +1026,7 @@ int runForestDQM(std::string inConfigName = "")
     }
   }
 
-  doFirstTexSlide(&fileTex, inFileNames, inNickNames, fileTrees.at(0), misMatchedTrees, eventCountOverride);
+  doFirstTexSlide(&fileTex, inFileNames, inNickNames, fileTrees.at(0), misMatchedTrees, eventCountOverride, footerLine);
 
   std::vector<int>* intVect_p=NULL;
   std::vector<bool>* boolVect_p=NULL;
@@ -1078,21 +1100,7 @@ int runForestDQM(std::string inConfigName = "")
 	}
 
 	if(mapOfVarToSkip.count(branchName) > 0) continue;
-	
-	/*
-	if(branchName.find("jtarea") != std::string::npos) continue;
-	else if(branchName.find("jtpu") != std::string::npos) continue;
-	else if(branchName.find("jttau") != std::string::npos) continue;	
-	else if(branchName.find("matched") != std::string::npos) continue;
-	else if(branchName.find("discr") != std::string::npos) continue;
-	else if(branchName.substr(0,3).find("ref") != std::string::npos) continue;
-	else if(branchName.find("genChargedSum") != std::string::npos) continue;
-	else if(branchName.find("genHardSum") != std::string::npos) continue;
-	else if(branchName.find("signalChargedSum") != std::string::npos) continue;
-	else if(branchName.find("signalHardSum") != std::string::npos) continue;
-	else if(branchName.find("ttbar_w") != std::string::npos) continue;
-	else if(branchName.find("ttbar_npus") != std::string::npos) continue;
-	*/
+
 	branchList.at(fI).push_back(branchName);
 	leafList.at(fI).push_back(leafName);
       }
@@ -1223,6 +1231,8 @@ int runForestDQM(std::string inConfigName = "")
 	  }
 	}
 	*/
+
+	//	std::cout << "L" << __LINE__ << std::endl;
 	
 	for(Int_t fI = 0; fI < nFiles; ++fI){
 	  tree_p[fI]->ResetBranchAddresses();
@@ -1245,6 +1255,7 @@ int runForestDQM(std::string inConfigName = "")
 	  }
 	  else{
 	    Int_t nEntriesTemp = tree_p[fI]->GetEntries();
+	    if(eventCountOverride > 0) nEntriesTemp =  eventCountOverride;
 
 	    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
 	      tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
@@ -1257,7 +1268,6 @@ int runForestDQM(std::string inConfigName = "")
 		bool cutPass = true;
 
 		for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-
 		  Long64_t cutValLong64 = tree_p[fI]->GetLeaf(cutVar[cI].c_str())->GetValueLong64(lI);
 		  Double_t cutValDouble = tree_p[fI]->GetLeaf(cutVar[cI].c_str())->GetValue(lI);
 		  		  
@@ -1284,6 +1294,7 @@ int runForestDQM(std::string inConfigName = "")
 	  }
 
 	  std::cout << "MAX VAL MIN VAL: " << maxVal << ", " << minVal << std::endl;
+	  //	  std::cout << "L" << __LINE__ << std::endl;
 
 	  //	  maxVal = TMath::Max(maxVal, tree_p[fI]->GetMaximum(branchList.at(0).at(bI1).c_str()));
 	  //	  minVal = TMath::Min(minVal, tree_p[fI]->GetMinimum(branchList.at(0).at(bI1).c_str()));
@@ -1346,9 +1357,10 @@ int runForestDQM(std::string inConfigName = "")
 		  else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
 		}
 	      }
-	    }
-
-	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    }	   
+	    
+	    Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
 	    
 	    int startPos = 0;
 	    while(!isFirstFound && startPos < nEntries1){
@@ -1401,7 +1413,7 @@ int runForestDQM(std::string inConfigName = "")
 	      }
 	    }
 	  
-	  	  
+	  	  	  
 	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
 	      tree_p[fI]->GetEntry(entry);
 
@@ -1462,7 +1474,8 @@ int runForestDQM(std::string inConfigName = "")
 	      }
 	    }
 	    
-	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
 	    
 	    int startPos = 0;
 	    while(!isFirstFound && startPos < nEntries1){
@@ -1574,7 +1587,8 @@ int runForestDQM(std::string inConfigName = "")
 	      }
 	    }
 	    
-	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
 	    
 	    int startPos = 0;
 	    while(!isFirstFound && startPos < nEntries1){
@@ -1686,7 +1700,8 @@ int runForestDQM(std::string inConfigName = "")
 	      }
 	    }
 	    
-	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
 	    
 	    int startPos = 0;
 	    while(!isFirstFound && startPos < nEntries1){
@@ -1796,7 +1811,8 @@ int runForestDQM(std::string inConfigName = "")
 	      }
 	    }
 	    
-	    const Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    Int_t nEntries1 = tree_p[fI]->GetEntries();
+	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
 	    
 	    int startPos = 0;
 	    while(!isFirstFound && startPos < nEntries1){
@@ -1931,6 +1947,7 @@ int runForestDQM(std::string inConfigName = "")
       }
       //      else  std::cout << "Not-resetting: " << branchList.at(0).at(bI1) << std::endl;
     
+      TH1D* tempHistForCanvas_p[nFiles];
       TH1D* tempHist_p[nFiles];
 
       Double_t bins[nBins+1];
@@ -1987,15 +2004,19 @@ int runForestDQM(std::string inConfigName = "")
       }
 
       bool doLogX = getDoLog(minVal, maxVal, 2);
+      if(doLogXOverrideMap.count(branchList.at(0).at(bI1)) > 0) doLogX = doLogXOverrideMap[branchList.at(0).at(bI1)];
       
+      Float_t minValXForHist = minVal;
+      Float_t maxValXForHist = maxVal;
+
       if(doLogX){
-	maxVal *= 2;
-	minVal /= 2;
+	maxValXForHist *= 2;
+	minValXForHist /= 2;
       }      
       else{	
 	Double_t interval = maxVal - minVal;
-	maxVal += interval/10.;
-	minVal -= interval/10.;
+	maxValXForHist += interval/10.;
+	minValXForHist -= interval/10.;
       }    
       
       //      std::cout << branchList.at(0).at(bI1) << ", " << maxVal << ", " << minVal << ", " << doLogX << std::endl;
@@ -2004,6 +2025,10 @@ int runForestDQM(std::string inConfigName = "")
 
       Int_t nBinsActual = nBins;
       if(nBinOverrideMap.count(branchList.at(0).at(bI1)) > 0) nBinsActual = nBinOverrideMap[branchList.at(0).at(bI1)];
+      if(nBinsActual > nBins){
+	std::cout << "REQUESTED NUMBER OF BINS, " << nBinsActual << ", FOR \'" << branchList.at(0).at(bI1) << "\' EXCEEDS MAXIMUM \'" << nBins << "\' - REVERT TO " << nBins << std::endl;
+	nBinsActual = nBins;
+      }
       
       if(doLogX) getLogBins(minVal, maxVal, nBinsActual, bins);
       else getLinBins(minVal, maxVal, nBinsActual, bins);
@@ -2075,46 +2100,38 @@ int runForestDQM(std::string inConfigName = "")
 	}     
 
 	histNames.at(fI) = histNames.at(fI) + "_" + cutString2 + "_h";
-	std::cout << histNames.at(fI) << std::endl;
-
+	std::string histNameForCanvas = histNames.at(fI) + "_" + cutString2 + "_ForCanvas_h";
+	tempHistForCanvas_p[fI] = new TH1D(histNameForCanvas.c_str(), (";" + branchList.at(0).at(bI1) + ";" + globalYStr).c_str(), 10, minValXForHist, maxValXForHist);
+	
 	tempHist_p[fI] = new TH1D(histNames.at(fI).c_str(), (";" + branchList.at(0).at(bI1) + ";" + globalYStr).c_str(), nBinsActual, bins);
-
-	std::cout << " \'" << cutString1 << "\'" << std::endl;
       
-	std::cout << "PROJECTING" << std::endl;
 	if(eventCountOverride < 0) tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), cutString1.c_str(), "");
 	else tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), cutString1.c_str(), "", eventCountOverride);
-	std::cout << "END PROJECTING" << std::endl;
 
-	tempHist_p[fI]->GetXaxis()->SetTitle(branchList.at(0).at(bI1).c_str());
-	tempHist_p[fI]->GetYaxis()->SetTitle(globalYStr.c_str());
-	
-	tempHist_p[fI]->SetMarkerSize(1.0);
-	tempHist_p[fI]->SetMarkerStyle(styles[fI]);
-	tempHist_p[fI]->SetMarkerColor(colors[fI]);
-	tempHist_p[fI]->SetLineColor(colors[fI]);
-	
-	tempHist_p[fI]->GetXaxis()->SetTitleFont(textFont);
-	tempHist_p[fI]->GetYaxis()->SetTitleFont(textFont);
-	tempHist_p[fI]->GetXaxis()->SetLabelFont(textFont);
-	tempHist_p[fI]->GetYaxis()->SetLabelFont(textFont);
-	
-	tempHist_p[fI]->GetXaxis()->SetTitleSize(textSize);
-	tempHist_p[fI]->GetYaxis()->SetTitleSize(textSize);
-	tempHist_p[fI]->GetXaxis()->SetLabelSize(textSize);
-	tempHist_p[fI]->GetYaxis()->SetLabelSize(textSize);
-	
-	//tempHist_p[fI]->GetXaxis()->SetTitleOffset(tempHist_p[fI]->GetXaxis()->GetTitleOffset()*4.);
-	tempHist_p[fI]->GetYaxis()->SetTitleOffset(titleOffset);
-	/*
-	std::cout << tempHist_p[fI]->GetYaxis()->GetTitleOffset() << std::endl;
-	std::cout << tempHist_p[fI]->GetYaxis()->GetTitle() << std::endl;
-	std::cout << tempHist_p[fI]->GetYaxis()->GetTitleFont() << std::endl;
-	std::cout << tempHist_p[fI]->GetYaxis()->GetTitleSize() << std::endl;
-	*/
-	//	tempHist_p[fI]->GetYaxis()->SetTitleOffset(2.5);
+	std::vector<TH1D*> histsToFormat = {tempHistForCanvas_p[fI], tempHist_p[fI]};
 
-	//	centerTitles(tempHist_p[fI]);
+	for(unsigned int hI = 0; hI < histsToFormat.size(); ++hI){
+	  histsToFormat[hI]->GetXaxis()->SetTitle(branchList.at(0).at(bI1).c_str());
+	  histsToFormat[hI]->GetYaxis()->SetTitle(globalYStr.c_str());
+	  
+	  histsToFormat[hI]->SetMarkerSize(1.0);
+	  histsToFormat[hI]->SetMarkerStyle(styles[fI]);
+	  histsToFormat[hI]->SetMarkerColor(colors[fI]);
+	  histsToFormat[hI]->SetLineColor(colors[fI]);
+	  
+	  histsToFormat[hI]->GetXaxis()->SetTitleFont(textFont);
+	  histsToFormat[hI]->GetYaxis()->SetTitleFont(textFont);
+	  histsToFormat[hI]->GetXaxis()->SetLabelFont(textFont);
+	  histsToFormat[hI]->GetYaxis()->SetLabelFont(textFont);
+	  
+	  histsToFormat[hI]->GetXaxis()->SetTitleSize(textSize);
+	  histsToFormat[hI]->GetYaxis()->SetTitleSize(textSize);
+	  histsToFormat[hI]->GetXaxis()->SetLabelSize(textSize);
+	  histsToFormat[hI]->GetYaxis()->SetLabelSize(textSize);
+	  
+	  histsToFormat[hI]->GetYaxis()->SetTitleOffset(titleOffset);
+	}
+
 	setSumW2(tempHist_p[fI]);
 
 	if(doEventNorm){
@@ -2123,55 +2140,64 @@ int runForestDQM(std::string inConfigName = "")
 	}
       }
 
+
+      //FIXME YOU ARE MIXING MAXVAL AND MINVAL
       maxVal = tempHist_p[0]->GetMinimum();
       minVal = tempHist_p[0]->GetMaximum();
+      double minValLogY = tempHist_p[0]->GetMaximum();
       
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	for(Int_t bIX = 0; bIX < tempHist_p[fI]->GetNbinsX(); ++bIX){
 	  if(tempHist_p[fI]->GetBinContent(bIX+1) != 0){
 	    if(tempHist_p[fI]->GetBinContent(bIX+1) > maxVal) maxVal = tempHist_p[fI]->GetBinContent(bIX+1);
-	    if(tempHist_p[fI]->GetBinContent(bIX+1) < minVal) minVal = tempHist_p[fI]->GetBinContent(bIX+1);
+	    if(tempHist_p[fI]->GetBinContent(bIX+1) < minVal){
+	      minVal = tempHist_p[fI]->GetBinContent(bIX+1);
+
+	      if(minVal > TMath::Power(10,-100)) minValLogY = minVal;
+	    }
 	  }
 	}
       }
 
       Double_t interval = maxVal - minVal;
 
-      if(interval > 1000 && minVal > 0){
+      bool doLogY = getDoLog(minVal, maxVal, 2);
+      if(doLogYOverrideMap.count(branchList.at(0).at(bI1)) > 0) doLogY = doLogYOverrideMap[branchList.at(0).at(bI1)];      
+
+      if(interval > 1000 || doLogY){ 
 	maxVal *= 10;
-	minVal /= 10;
+	minValLogY /= 10;
       }
       else{
 	maxVal += interval/10.;
 	if(minVal - interval/10 > 0 || minVal < 0) minVal -= interval/10;
 	else minVal = 0;
       }
-
-
-      tempHist_p[0]->SetMaximum(maxVal);
-      tempHist_p[0]->SetMinimum(minVal);
+      
+      
+      tempHistForCanvas_p[0]->SetMaximum(maxVal);
+      if(doLogY) tempHistForCanvas_p[0]->SetMinimum(minValLogY);
+      else tempHistForCanvas_p[0]->SetMinimum(minVal);
 
       canv_p->cd();
       pads_p[0]->cd();
-
+    
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	if(fI == 0){
-	  if(cutString1.size() != 0) tempHist_p[fI]->SetTitle(cutString1.c_str());
-	  else tempHist_p[fI]->SetTitle("No cut");
+	  if(cutString1.size() != 0) tempHistForCanvas_p[fI]->SetTitle(cutString1.c_str());
+	  else tempHistForCanvas_p[fI]->SetTitle("No cut");
 
-	  if(branchList.at(0).at(bI1).find("jet_pt") != std::string::npos) tempHist_p[fI]->SetMinimum(0.000000001);
-	  tempHist_p[fI]->DrawCopy("E1 P");
+	  tempHistForCanvas_p[fI]->DrawCopy();
+	  
+	  tempHist_p[fI]->DrawCopy("E1 P SAME");
 	}
 	else tempHist_p[fI]->DrawCopy("E1 P SAME");
       }
-
-      if(branchList.at(0).at(bI1).find("jet_pt") != std::string::npos){
-	gPad->SetLogy();
-      }
           
       leg_p->Draw("SAME");
-
-      if(getDoLog(minVal, maxVal, 2)) gPad->SetLogy();
+    
+      
+      if(doLogY) gPad->SetLogy();
       if(doLogX) gPad->SetLogx();
       gStyle->SetOptStat(0);
       gPad->RedrawAxis();
@@ -2190,6 +2216,14 @@ int runForestDQM(std::string inConfigName = "")
 
 	tempHist_p[fI]->GetYaxis()->SetNdivisions(505);
 	tempHist_p[fI]->GetYaxis()->SetTitleOffset(titleOffset*padSplit/(1.0 - padSplit));
+ 
+	tempHistForCanvas_p[fI]->GetXaxis()->SetTitleSize(textSize*(1.0 - padSplit)/padSplit);
+	tempHistForCanvas_p[fI]->GetYaxis()->SetTitleSize(textSize*(1.0 - padSplit)/padSplit);
+	tempHistForCanvas_p[fI]->GetXaxis()->SetLabelSize(textSize*(1.0 - padSplit)/padSplit);
+	tempHistForCanvas_p[fI]->GetYaxis()->SetLabelSize(textSize*(1.0 - padSplit)/padSplit);
+
+	tempHistForCanvas_p[fI]->GetYaxis()->SetNdivisions(505);
+	tempHistForCanvas_p[fI]->GetYaxis()->SetTitleOffset(titleOffset*padSplit/(1.0 - padSplit));
       }
 
 
@@ -2223,7 +2257,7 @@ int runForestDQM(std::string inConfigName = "")
       }
     
       for(Int_t fI = 1; fI < nFiles; ++fI){
-	tempHist_p[fI]->GetYaxis()->SetTitle(("All/" + inNickNames.at(0)).c_str());
+	tempHistForCanvas_p[fI]->GetYaxis()->SetTitle(("All/" + inNickNames.at(0)).c_str());
 
 	double localDivMin = divMin;
 	double localDivMax = divMax;
@@ -2238,11 +2272,12 @@ int runForestDQM(std::string inConfigName = "")
 
 	double localDivInt = localDivMax - localDivMin;
 	
-	tempHist_p[fI]->SetMaximum(localDivMax);
-	tempHist_p[fI]->SetMinimum(localDivMin);
+	tempHistForCanvas_p[fI]->SetMaximum(localDivMax);
+	tempHistForCanvas_p[fI]->SetMinimum(localDivMin);
 
-	if(fI == 1) tempHist_p[fI]->DrawCopy("E1 P");
-	else tempHist_p[fI]->DrawCopy("E1 P SAME");
+	if(fI == 1) tempHistForCanvas_p[fI]->DrawCopy();	
+
+	tempHist_p[fI]->DrawCopy("E1 P SAME");
 
 	for(Int_t bIX = 0; bIX < tempHist_p[fI]->GetXaxis()->GetNbins(); ++bIX){
 	  Double_t val = tempHist_p[fI]->GetBinContent(bIX+1);
@@ -2268,7 +2303,7 @@ int runForestDQM(std::string inConfigName = "")
 
       if(doLogX) gPad->SetLogx();
 
-      line.DrawLine(tempHist_p[0]->GetBinLowEdge(1), 1, tempHist_p[0]->GetBinLowEdge(tempHist_p[0]->GetNbinsX()+1), 1);
+      line.DrawLine(tempHistForCanvas_p[0]->GetBinLowEdge(1), 1, tempHistForCanvas_p[0]->GetBinLowEdge(tempHistForCanvas_p[0]->GetNbinsX()+1), 1);
       gPad->RedrawAxis();
       //      gPad->SetTicks(0, 1);
       gPad->SetTicks();
@@ -2283,6 +2318,7 @@ int runForestDQM(std::string inConfigName = "")
 
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	delete tempHist_p[fI];
+	delete tempHistForCanvas_p[fI];
       }
 
       delete pads_p[0];
