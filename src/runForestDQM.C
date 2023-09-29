@@ -193,9 +193,12 @@ bool valPassesCut(Long64_t val, std::string cutStr, bool isCutAbs)
 }
 
 
-void dumpTreeNames(std::string fileName, std::vector<std::string> treeNames)
+void dumpTreeNames(std::string fileName, std::vector<std::string> treeNames, bool isSelected)
 {
-  std::cout << "TTrees In File \'" << fileName << "\':" << std::endl;
+  std::string selStr = " (No Selection)";
+  if(isSelected) selStr = " (After Selection)";
+
+  std::cout << "TTrees In File \'" << fileName << "\'" << selStr << ":" << std::endl;
   for(unsigned int tI = 0; tI < treeNames.size(); ++tI){
     std::cout << " Tree " << tI << "/" << treeNames.size() << ": " << treeNames.at(tI) << std::endl;
   }
@@ -664,7 +667,25 @@ int runForestDQM(std::string inConfigName = "")
     inNickNames.push_back(tempNickName);
   }
 
+  //FOOTER LINE FOR AUTO SLIDES
   const std::string footerLine = config_p->GetValue("FOOTERLINE", "DEFAULT FOOTER LINE (SET IN CONFIG)");
+
+  //Get doWeight, weightTree, etc.
+  bool doWeight = config_p->GetValue("DOWEIGHT", false);
+  std::string weightTree = config_p->GetValue("WEIGHTTREE", "");
+  std::string weightVar = config_p->GetValue("WEIGHTVAR", "");
+  
+  //Check the weight parameters before proceeding if doWeight is true
+  if(doWeight){
+    if(weightTree.size() == 0){
+      std::cout << "WARNING: DOWEIGHT is true but weightTree string is empty. Setting doWeight to false, no weights will be applied" << std::endl;
+      doWeight = false;
+    }
+    if(weightVar.size() == 0){
+      std::cout << "WARNING: DOWEIGHT is true but weightVar string is empty. Setting doWeight to false, no weights will be applied" << std::endl;
+      doWeight = false;
+    }    
+  }
   
   //Keep treeselect as comma seperated list for now but switch to direct vector soon
   std::string treeSelect = "";
@@ -674,9 +695,7 @@ int runForestDQM(std::string inConfigName = "")
     if(tempTreeStr.size() == 0) continue;
     treeSelect = treeSelect + tempTreeStr + "," ;
   }
-  
-  
-  
+   
   //Default to doing event norm.
   const Bool_t doEventNorm = config_p->GetValue("DOEVENTNORM", 1);
   //Default no override i.e. < 0
@@ -772,7 +791,11 @@ int runForestDQM(std::string inConfigName = "")
     
   //Start using the input parameters
   std::string globalYStrTemp = "Counts";
-  if(doEventNorm) globalYStrTemp = "#frac{1}{N_{evt}} Counts";
+  if(doWeight) globalYStrTemp = "Weighted Counts";
+  if(doEventNorm){
+    if(doWeight) globalYStrTemp = "#frac{1}{N_{evt}^{Weighted}} " + globalYStrTemp;
+    else globalYStrTemp = "#frac{1}{N_{evt}} " + globalYStrTemp;
+  }
 
   const std::string globalYStr = globalYStrTemp;
 
@@ -987,45 +1010,142 @@ int runForestDQM(std::string inConfigName = "")
   if(treeSelectCopy.size() != 0) treesToSelect.push_back(treeSelectCopy);
 
   TFile* inFiles_p[nFiles];
+  Double_t inFilesWeightedCounts[nFiles];
   std::vector<std::vector<std::string > > fileTrees;
   for(Int_t fI = 0; fI < nFiles; ++fI){
     inFiles_p[fI] = TFile::Open(mntToXRootdFileString(inFileNames.at(fI)).c_str(), "READ");
     std::vector<std::string> tempTrees = returnRootFileContentsList(inFiles_p[fI], "TTree");
+    inFilesWeightedCounts[fI] = 0.0;
+    
     removeVectorDuplicates(&tempTrees);
  
-    unsigned int pos = 0;
-    while(tempTrees.size() > pos){
-      bool isGood = false;
-      for(unsigned int tI = 0; tI < treesToSelect.size(); ++tI){
-	if(isStrSame(treesToSelect.at(tI), tempTrees.at(pos))){
-	  isGood = true;
-	  break;
-	}
-      }
-
-      if(isGood) ++pos;
-      else tempTrees.erase(tempTrees.begin()+pos);
-    }
-
-    dumpTreeNames(inFileNames.at(fI), tempTrees);
+    //    dumpTreeNames(inFileNames.at(fI), tempTrees);
     fileTrees.push_back(tempTrees);
     misMatchedTrees.push_back({});
   }
-
-  //Hardcoding
-  //  fileTrees = {{"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}, {"particleFlowAnalyser/pftree", "akFlowPuCs4PFJetAnalyzer/t"}};
-  //  fileTrees = {{"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}, {"akFlowPuCs4PFJetAnalyzer/t"}};
-  //  fileTrees = {{"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}};
-    fileTrees = {{"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}, {"particleFlowAnalyser/pftree", "ak4PFJetAnalyzer/t", "akCs4PFJetAnalyzer/t", "akFlowPuCs4PFJetAnalyzer/t", "hiEvtAnalyzer/HiTree"}};
+  
   std::cout << "Checking tree strings match..." << std::endl;
-
   for(Int_t fI = 0; fI < nFiles-1; ++fI){
     for(Int_t fI2 = fI+1; fI2 < nFiles; ++fI2){
       if(doStringsMatch(&(fileTrees.at(fI)), &(fileTrees.at(fI2)), &(misMatchedTrees.at(fI)), &(misMatchedTrees.at(fI2)))) std::cout << "All trees match between files!" << std::endl;
       else std::cout << "Mismatched trees found and removed..." << std::endl;
     }
   }
+  
+  //At this point all ttrees should be matched across tfiles
+  //Check the weighttree exists
+  if(doWeight){
+    bool weightTreeFound = false;
+    //Just scan the first file vector   
+    for(unsigned int tI = 0; tI < fileTrees[0].size(); ++tI){
+      if(isStrSame(fileTrees[0][tI], weightTree)){
+	weightTreeFound = true;
+	break;
+      }
+    }
 
+    //If weight TTree not
+    if(!weightTreeFound){
+      std::cout << "WARNING: Given weightTree \'" << weightTree << "\' is not found in selected files given. Turning off doWeight, no weights will be applied" << std::endl;
+      doWeight = false;
+    }
+    else{//Check the weightVar exists in the ttree
+      TTree* checkTree_p = (TTree*)inFiles_p[0]->Get(weightTree.c_str());
+      //Just check branches - you should turn your branch/leaf checker into a proper function later
+      TObjArray* checkBranchList = (TObjArray*)checkTree_p->GetListOfBranches();
+
+      //Scan branch list for weightVar
+      bool weightVarExists = false;
+      for(Int_t bI = 0; bI < checkBranchList->GetEntries(); ++bI){
+	std::string name = checkBranchList->At(bI)->GetName();
+	if(isStrSame(name, weightVar)){
+	  weightVarExists = true;
+	  break;
+	}
+      }
+
+      //If weightVar doesn't exist cout a warning and turn weights off
+      if(!weightVarExists){
+	std::cout << "WARNING: WEIGHTVAR \'" << weightVar << "\' does not exist in given WEIGHTTREE \'" << weightTree << "\'. Recommend checking var. spelling and ttree you think it is in. DOWEIGHT turned to false" << std::endl;
+	doWeight = false;
+      }
+      else{//Lets get the weightVar datatype      
+	TLeaf* tempLeaf = (TLeaf*)checkTree_p->GetLeaf(weightVar.c_str());
+	std::string tempClassType = tempLeaf->GetTypeName();
+
+	bool varIsVect = tempClassType.find("vector") != std::string::npos;
+	if(varIsVect){
+	  std::cout << "WARNING: Given weight var \'" << weightVar << "\' is a vector, this feature is only intended to work w/ event by event weights - doWeight set to false" << std::endl;
+	  doWeight = false;
+	}	
+      }
+    }
+
+    if(doWeight){//doWeight is still valid - get each files effective event counts
+      bool leafHasLength1 = true;
+
+      for(unsigned int fI = 0; fI < fileTrees.size(); ++fI){
+	TTree* checkTree_p = (TTree*)inFiles_p[fI]->Get(weightTree.c_str());
+	checkTree_p->SetBranchStatus("*", 0);
+	checkTree_p->SetBranchStatus(weightVar.c_str(), 1);
+
+	ULong64_t nEntries = checkTree_p->GetEntries();
+	if(eventCountOverride > 0){
+	  if(((ULong64_t)eventCountOverride) < nEntries) nEntries = eventCountOverride;
+	}
+
+	for(ULong64_t entry = 0; entry < nEntries; ++entry){
+	  checkTree_p->GetEntry(entry);
+
+	  //Just check the leaf length
+	  Int_t currLeafLength = checkTree_p->GetLeaf(weightVar.c_str())->GetLen();
+	  leafHasLength1 = currLeafLength == 1;	  
+	  if(!leafHasLength1) break;
+
+	  //Leaf length good, process
+	  Double_t cutValDouble = checkTree_p->GetLeaf(weightVar.c_str())->GetValue(0);
+
+	  inFilesWeightedCounts[fI] += cutValDouble;
+	}
+	
+	if(!leafHasLength1) break;
+      }
+
+      if(!leafHasLength1){
+	std::cout << "WARNING: weightVar \'" << weightVar << "\' has leaf length greater than 1. Setting doWeight to false " << std::endl;
+	doWeight = false;
+      }
+    }
+  }
+  
+  //Finally - check treesToSelect is greater than zero, if yes then start applying selections
+  if(treesToSelect.size() > 0){
+    unsigned int pos = 0;
+    while(fileTrees[0].size() > pos){
+      bool isGood = false;
+      for(unsigned int tI = 0; tI < treesToSelect.size(); ++tI){
+	if(isStrSame(treesToSelect[tI], fileTrees[0][pos])){
+	  isGood = true;
+	  break;
+	}
+      }
+      
+      if(isGood) ++pos;
+      else{
+	for(unsigned int fI = 0; fI < fileTrees.size(); ++fI){
+	  fileTrees[fI].erase(fileTrees[fI].begin()+pos);
+	}
+      }
+    }
+  }    
+
+
+  //Check the fileTrees stuff works as expected
+  for(unsigned int fI = 0; fI < fileTrees.size(); ++fI){
+    dumpTreeNames(inFileNames.at(fI), fileTrees[fI], treesToSelect.size() > 0);
+  }
+
+  //Create the opening tex slide - lot of metadata handling
   doFirstTexSlide(&fileTex, inFileNames, inNickNames, fileTrees.at(0), misMatchedTrees, eventCountOverride, footerLine);
 
   std::vector<int>* intVect_p=NULL;
@@ -1152,6 +1272,8 @@ int runForestDQM(std::string inConfigName = "")
       std::string tempClassType = tempLeaf->GetTypeName();
       bool varIsVect = tempClassType.find("vector") != std::string::npos;
 
+      bool maxValIsSet = false;      
+      bool minValIsSet = false;      
       Double_t maxVal = -999999;
       Double_t minVal = 999999;
 
@@ -1167,7 +1289,7 @@ int runForestDQM(std::string inConfigName = "")
 	cutStr = mapFromVarToCut[branchList.at(0).at(bI1)];
 	cutVar = mapFromVarToCutVar[branchList.at(0).at(bI1)];
 	isCutAbs = mapFromVarToIsCutAbs[branchList.at(0).at(bI1)];
-	
+      
 	for(unsigned int cI = 0; cI < cutStr.size(); ++cI){
 	  if(cutStr[cI].find("==") != std::string::npos || cutStr[cI].find("==") != std::string::npos) doLong.push_back(true);
 	  else doLong.push_back(false);
@@ -1179,226 +1301,245 @@ int runForestDQM(std::string inConfigName = "")
 	      cutVarLastPos[cI] = cI2;
 	    }
 	  }
-	}
-      }
-
-      std::string maxValFile = inFileNames.at(0);
-      std::string minValFile = inFileNames.at(0);
-        
-      if(!varIsVect){	
-	/*
-	if(!isBranchCut){
-	  maxVal = tree_p[0]->GetMaximum(branchList.at(0).at(bI1).c_str());
-	  minVal = tree_p[0]->GetMinimum(branchList.at(0).at(bI1).c_str());
-	}
-	else{
-	  std::cout << "CUT SEARCH FOR \'" << branchList.at(0).at(bI1) << "\'" << std::endl;
-
-	  Int_t nEntriesTemp = tree_p[0]->GetEntries();
-
-	  for(unsigned int cI = 0; cI < cutStr.size(); ++cI){
-	    tree_p[0]->SetBranchStatus(cutVar[cI].c_str(), 1);
-	  }
-
-	  for(Int_t entry = 0; entry < nEntriesTemp; ++entry){
-	    tree_p[0]->GetEntry(entry);
-
-	    for(Int_t lI = 0; lI < tree_p[0]->GetLeaf(cutVar[0].c_str())->GetLen(); ++lI){
-	      
-	      bool cutPass = true;
-	      for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-		Double_t cutValDouble = tree_p[0]->GetLeaf(cutVar[cI].c_str())->GetValue(lI);
-		Long64_t cutValLong64 = tree_p[0]->GetLeaf(cutVar[cI].c_str())->GetValueLong64(lI);
-		if(doLong[cI]) cutPass = valPassesCut(cutValLong64, cutStr[cI]);
-		else cutPass = valPassesCut(cutValDouble, cutStr[cI]);
-
-		if(!cutPass) continue;
-	      }
-
-	      
-	      if(!cutPass) continue;	    
-	      Double_t varVal = tree_p[0]->GetLeaf(branchList.at(0).at(bI1).c_str())->GetValue(lI);	
-	      if(firstFill == true){
-		maxVal = varVal;
-		minVal = varVal;
-		firstFill = false;
-	      }
-	      else{	 
-		if(maxVal < varVal) maxVal = varVal;
-		if(minVal > varVal) minVal = varVal;
-	      }
-	    }
-	  }
-	}
-	*/
-
-	//	std::cout << "L" << __LINE__ << std::endl;
-	
-	for(Int_t fI = 0; fI < nFiles; ++fI){
-	  tree_p[fI]->ResetBranchAddresses();
-	  tree_p[fI]->SetBranchStatus("*", 0);
-	  tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
-	  
-	  if(!isBranchCut){
-	    Double_t tempMaxVal = tree_p[fI]->GetMaximum(branchList.at(0).at(bI1).c_str());
-	    Double_t tempMinVal = tree_p[fI]->GetMinimum(branchList.at(0).at(bI1).c_str());
-	    
-	    if(tempMaxVal > maxVal){
-	      maxVal = tempMaxVal;
-	      maxValFile = inFileNames.at(fI);
-	    }
-	    
-	    if(tempMinVal < minVal){
-	      minVal = tempMinVal;
-	      minValFile = inFileNames.at(fI);
-	    }
-	  }
-	  else{
-	    Int_t nEntriesTemp = tree_p[fI]->GetEntries();
-	    if(eventCountOverride > 0) nEntriesTemp =  eventCountOverride;
-
-	    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-	      tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
-	    }
-
-	    for(Int_t entry = 0; entry < nEntriesTemp; ++entry){
-	      tree_p[fI]->GetEntry(entry);
-
-	      for(Int_t lI = 0; lI < tree_p[fI]->GetLeaf(cutVar[0].c_str())->GetLen(); ++lI){
-		bool cutPass = true;
-
-		for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-		  Long64_t cutValLong64 = tree_p[fI]->GetLeaf(cutVar[cI].c_str())->GetValueLong64(lI);
-		  Double_t cutValDouble = tree_p[fI]->GetLeaf(cutVar[cI].c_str())->GetValue(lI);
-		  		  
-		  if(doLong[cI]) cutPass = valPassesCut(cutValLong64, cutStr[cI], isCutAbs[cI]);
-		  else cutPass = valPassesCut(cutValDouble, cutStr[cI], isCutAbs[cI]);
-		  
-		  if(!cutPass) break;		  
-		}
-		
-		if(!cutPass) continue;
-		
-		Double_t varVal = tree_p[fI]->GetLeaf(branchList.at(0).at(bI1).c_str())->GetValue(lI);	
-		if(firstFill == true){
-		  maxVal = varVal;
-		  minVal = varVal;
-		  firstFill = false;
-		}
-		else{	 
-		  if(maxVal < varVal) maxVal = varVal;
-		  if(minVal > varVal) minVal = varVal;
-		}
-	      }
-	    }
-	  }
-
-	  std::cout << "MAX VAL MIN VAL: " << maxVal << ", " << minVal << std::endl;
-	  //	  std::cout << "L" << __LINE__ << std::endl;
-
-	  //	  maxVal = TMath::Max(maxVal, tree_p[fI]->GetMaximum(branchList.at(0).at(bI1).c_str()));
-	  //	  minVal = TMath::Min(minVal, tree_p[fI]->GetMinimum(branchList.at(0).at(bI1).c_str()));
-	}
-      }
-      else if(varIsVect && tempClassType.find("vector<vector") == std::string::npos){
-	//	std::cout << "Searching for vector max/min of branch \'" << branchList.at(0).at(bI1) << "\'" << std::endl;
-
-	std::vector<bool> cutIsInt;
-	std::vector<bool> cutIsBool;
-	std::vector<bool> cutIsShort;
-	std::vector<bool> cutIsDouble;
-	std::vector<bool> cutIsFloat;
       
-	for(unsigned int cI = 0; cI < cutStr.size(); ++cI){
-	  if(isBranchCut){
-	    if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-	      TLeaf* tempLeafCut = (TLeaf*)tree_p[0]->GetLeaf(cutVar[cI].c_str());
-	      std::string tempClassTypeCut = tempLeafCut->GetTypeName();
-	      cutIsInt.push_back(tempClassTypeCut.find("int") != std::string::npos);
-	      cutIsBool.push_back(tempClassTypeCut.find("bool") != std::string::npos);
-	      cutIsShort.push_back(tempClassTypeCut.find("short") != std::string::npos);
-	      cutIsFloat.push_back(tempClassTypeCut.find("float") != std::string::npos);
-	      cutIsDouble.push_back(tempClassTypeCut.find("double") != std::string::npos);
+	  //	  std::cout << "BRANCHLIST, CUTVAR: " << branchList.at(0).at(bI1) << ", " << cutVar[cI] << std::endl;
+	  if(isStrSame(branchList.at(0).at(bI1), cutVar[cI])){
+	    std::cout << branchList.at(0).at(bI1) << ", " << cutVar[cI] << ", " << cutStr[cI] << std::endl;
+
+	    std::string tempCutStr = cutStr[cI];
+	    if(!isCutAbs[cI]){
+	      tempCutStr.replace(tempCutStr.find(cutVar[cI]), cutVar[cI].size(), "");
+
+	      if(tempCutStr.find(">") != std::string::npos){
+		tempCutStr.replace(0, tempCutStr.find(">")+1, "");
+		if(tempCutStr.substr(0,1).find("=") != std::string::npos) tempCutStr.replace(0,1,"");
+		minVal = std::stod(tempCutStr);
+		minValIsSet = true;
+	      }
+	      else if(tempCutStr.find("<") != std::string::npos){
+		tempCutStr.replace(0, tempCutStr.find("<")+1, "");
+		if(tempCutStr.substr(0,1).find("=") != std::string::npos) tempCutStr.replace(0,1,"");
+		maxVal = std::stod(tempCutStr);
+		maxValIsSet = true;
+	      }
 	    }
-	    else{
-	      cutIsInt.push_back(false);
-	      cutIsBool.push_back(false);
-	      cutIsShort.push_back(false);
-	      cutIsFloat.push_back(false);
-	      cutIsDouble.push_back(false);
-	    }
-	  
-	    intVectCut_p.push_back(nullptr);
-	    boolVectCut_p.push_back(nullptr);
-	    shortVectCut_p.push_back(nullptr);
-	    floatVectCut_p.push_back(nullptr);
-	    doubleVectCut_p.push_back(nullptr);
+	    else if(tempCutStr.find("<") != std::string::npos){
+	      tempCutStr.replace(0, tempCutStr.find("<")+1, "");
+	      if(tempCutStr.substr(0,1).find("=") != std::string::npos) tempCutStr.replace(0,1,"");
+	      maxVal = std::stod(tempCutStr);
+	      maxValIsSet = true;
+	      minVal = -maxVal;
+	      minValIsSet = true;
+	    }	    
 	  }
 	}
+      }
+   
+      std::string maxValFile = inFileNames.at(0);
+      std::string minValFile = inFileNames.at(0);  
 
-	bool isFirstFound = false;
-	if(tempClassType.find("int") != std::string::npos){
+      if(!minValIsSet || !maxValIsSet){
+	if(!varIsVect){	
 	  for(Int_t fI = 0; fI < nFiles; ++fI){
+	    tree_p[fI]->ResetBranchAddresses();
 	    tree_p[fI]->SetBranchStatus("*", 0);
 	    tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 	    
-	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &intVect_p);
-
-	    if(isBranchCut){
-
-	      for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-		if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		  tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);       
-		  
-		  if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
-		  else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
-		  else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
-		  else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
-		  else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
-		}
-	      }
-	    }	   
-	    
-	    Int_t nEntries1 = tree_p[fI]->GetEntries();
-	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
-	    
-	    int startPos = 0;
-	    while(!isFirstFound && startPos < nEntries1){
-	      tree_p[fI]->GetEntry(startPos);
+	    if(!isBranchCut){
+	      Double_t tempMaxVal = tree_p[fI]->GetMaximum(branchList.at(0).at(bI1).c_str());
+	      Double_t tempMinVal = tree_p[fI]->GetMinimum(branchList.at(0).at(bI1).c_str());
 	      
-	      ++startPos;
-
-	      for(unsigned int vI = 0; vI < intVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
+	      if(tempMaxVal > maxVal){
+		maxVal = tempMaxVal;
+		maxValFile = inFileNames.at(fI);
+	      }
+	      
+	      if(tempMinVal < minVal){
+		minVal = tempMinVal;
+		minValFile = inFileNames.at(fI);
+	      }
+	    }
+	    else{
+	      Int_t nEntriesTemp = tree_p[fI]->GetEntries();
+	      if(eventCountOverride > 0) nEntriesTemp =  eventCountOverride;
+	      
+	      for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
+	      }
+	      
+	      for(Int_t entry = 0; entry < nEntriesTemp; ++entry){
+		tree_p[fI]->GetEntry(entry);
+		
+		for(Int_t lI = 0; lI < tree_p[fI]->GetLeaf(cutVar[0].c_str())->GetLen(); ++lI){
+		  bool cutPass = true;
+		  
 		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)intVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]){
-			passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      }
-		    }
+		    Long64_t cutValLong64 = tree_p[fI]->GetLeaf(cutVar[cI].c_str())->GetValueLong64(lI);
+		    Double_t cutValDouble = tree_p[fI]->GetLeaf(cutVar[cI].c_str())->GetValue(lI);
 		    
-		    if(!passes) break;		    
+		    if(doLong[cI]) cutPass = valPassesCut(cutValLong64, cutStr[cI], isCutAbs[cI]);
+		    else cutPass = valPassesCut(cutValDouble, cutStr[cI], isCutAbs[cI]);
+		    
+		    if(!cutPass) break;		  
+		  }
+		  
+		  if(!cutPass) continue;
+		  
+		  Double_t varVal = tree_p[fI]->GetLeaf(branchList.at(0).at(bI1).c_str())->GetValue(lI);	
+		  if(firstFill == true){
+		    maxVal = varVal;
+		    minVal = varVal;
+		    firstFill = false;
+		  }
+		  else{	 
+		    if(maxVal < varVal) maxVal = varVal;
+		    if(minVal > varVal) minVal = varVal;
 		  }
 		}
-
-		if(!passes) continue;
+	      }
+	    }
+	  }
+	}
+	else if(varIsVect && tempClassType.find("vector<vector") == std::string::npos){
+	  //	std::cout << "Searching for vector max/min of branch \'" << branchList.at(0).at(bI1) << "\'" << std::endl;
+	  
+	  std::vector<bool> cutIsInt;
+	  std::vector<bool> cutIsBool;
+	  std::vector<bool> cutIsShort;
+	  std::vector<bool> cutIsDouble;
+	  std::vector<bool> cutIsFloat;
+	  
+	  for(unsigned int cI = 0; cI < cutStr.size(); ++cI){
+	    if(isBranchCut){
+	      if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+		TLeaf* tempLeafCut = (TLeaf*)tree_p[0]->GetLeaf(cutVar[cI].c_str());
+		std::string tempClassTypeCut = tempLeafCut->GetTypeName();
+		cutIsInt.push_back(tempClassTypeCut.find("int") != std::string::npos);
+		cutIsBool.push_back(tempClassTypeCut.find("bool") != std::string::npos);
+		cutIsShort.push_back(tempClassTypeCut.find("short") != std::string::npos);
+		cutIsFloat.push_back(tempClassTypeCut.find("float") != std::string::npos);
+		cutIsDouble.push_back(tempClassTypeCut.find("double") != std::string::npos);
+	      }
+	      else{
+		cutIsInt.push_back(false);
+		cutIsBool.push_back(false);
+		cutIsShort.push_back(false);
+		cutIsFloat.push_back(false);
+		cutIsDouble.push_back(false);
+	      }
+	      
+	      intVectCut_p.push_back(nullptr);
+	      boolVectCut_p.push_back(nullptr);
+	      shortVectCut_p.push_back(nullptr);
+	      floatVectCut_p.push_back(nullptr);
+	      doubleVectCut_p.push_back(nullptr);
+	    }
+	  }
+	  
+	  bool isFirstFound = false;
+	  if(tempClassType.find("int") != std::string::npos){
+	    for(Int_t fI = 0; fI < nFiles; ++fI){
+	      tree_p[fI]->SetBranchStatus("*", 0);
+	      tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
+	      
+	      tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &intVect_p);
+	      
+	      if(isBranchCut){
 		
-		if(!isFirstFound){
-		  minVal = intVect_p->at(vI);
-		  maxVal = intVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);
-		  maxValFile = inFileNames.at(fI);
+		for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		  if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+		    tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);       
+		    
+		    if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
+		    else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
+		    else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
+		    else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
+		    else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
+		  }
 		}
-		else{
+	      }	   
+	      
+	      Int_t nEntries1 = tree_p[fI]->GetEntries();
+	      if(eventCountOverride > 0) nEntries1 = eventCountOverride;
+	      
+	      int startPos = 0;
+	      while(!isFirstFound && startPos < nEntries1){
+		tree_p[fI]->GetEntry(startPos);
+		
+		++startPos;
+		
+		for(unsigned int vI = 0; vI < intVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut((Long64_t)intVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]){
+			  passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			}
+		      }
+		      
+		      if(!passes) break;		    
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
+		  if(!isFirstFound){
+		    minVal = intVect_p->at(vI);
+		    maxVal = intVect_p->at(vI);
+		    minValFile = inFileNames.at(fI);
+		    maxValFile = inFileNames.at(fI);
+		  }
+		  else{
+		    if(intVect_p->at(vI) > maxVal){
+		      maxVal = intVect_p->at(vI);
+		      maxValFile = inFileNames.at(fI);		  
+		    }
+		    if(intVect_p->at(vI) < minVal){
+		      minVal = intVect_p->at(vI);
+		      minValFile = inFileNames.at(fI);		  
+		    }
+		  }
+		  
+		  isFirstFound = true;
+		}
+	      }
+	      
+	      
+	      for(Int_t entry = startPos; entry < nEntries1; ++entry){
+		tree_p[fI]->GetEntry(entry);
+		
+		for(unsigned int vI = 0; vI < intVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut((Long64_t)intVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
 		  if(intVect_p->at(vI) > maxVal){
 		    maxVal = intVect_p->at(vI);
 		    maxValFile = inFileNames.at(fI);		  
@@ -1408,111 +1549,110 @@ int runForestDQM(std::string inConfigName = "")
 		    minValFile = inFileNames.at(fI);		  
 		  }
 		}
-
-		isFirstFound = true;
-	      }
-	    }
-	  
-	  	  	  
-	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
-	      tree_p[fI]->GetEntry(entry);
-
-	      for(unsigned int vI = 0; vI < intVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)intVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-
-		    if(!passes) break;
-		  }
-		}
-
-		if(!passes) continue;
-		
-		if(intVect_p->at(vI) > maxVal){
-		  maxVal = intVect_p->at(vI);
-		  maxValFile = inFileNames.at(fI);		  
-		}
-		if(intVect_p->at(vI) < minVal){
-		  minVal = intVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);		  
-		}
 	      }
 	    }
 	  }
-	}
-	else if(tempClassType.find("bool") != std::string::npos){
-	  for(Int_t fI = 0; fI < nFiles; ++fI){
-	    tree_p[fI]->SetBranchStatus("*", 0);
-	    tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
-	    
-	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &boolVect_p);
-
-	    if(isBranchCut){ 
-	      for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
-
-		if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		  tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
-		  
-		  if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
-		  else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
-		  else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
-		  else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
-		  else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
-		}
-	      }
-	    }
-	    
-	    Int_t nEntries1 = tree_p[fI]->GetEntries();
-	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
-	    
-	    int startPos = 0;
-	    while(!isFirstFound && startPos < nEntries1){
-	      tree_p[fI]->GetEntry(startPos);
+	  else if(tempClassType.find("bool") != std::string::npos){
+	    for(Int_t fI = 0; fI < nFiles; ++fI){
+	      tree_p[fI]->SetBranchStatus("*", 0);
+	      tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 	      
-	      ++startPos;
-
-	      for(unsigned int vI = 0; vI < boolVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+	      tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &boolVect_p);
+	      
+	      if(isBranchCut){ 
+		for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
+		  
+		  if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+		    tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
 		    
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-
-		    if(!passes) break;
+		    if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
+		    else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
+		    else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
+		    else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
+		    else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
 		  }
 		}
-
-		if(!passes) continue;
+	      }
+	      
+	      Int_t nEntries1 = tree_p[fI]->GetEntries();
+	      if(eventCountOverride > 0) nEntries1 = eventCountOverride;
+	      
+	      int startPos = 0;
+	      while(!isFirstFound && startPos < nEntries1){
+		tree_p[fI]->GetEntry(startPos);
 		
-		if(!isFirstFound){
-		  minVal = boolVect_p->at(vI);
-		  maxVal = boolVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);
-		  maxValFile = inFileNames.at(fI);
+		++startPos;
+		
+		for(unsigned int vI = 0; vI < boolVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		      
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
+		  if(!isFirstFound){
+		    minVal = boolVect_p->at(vI);
+		    maxVal = boolVect_p->at(vI);
+		    minValFile = inFileNames.at(fI);
+		    maxValFile = inFileNames.at(fI);
+		  }
+		  else{
+		    if(boolVect_p->at(vI) > maxVal){
+		      maxVal = boolVect_p->at(vI);
+		      maxValFile = inFileNames.at(fI);		  
+		    }
+		    if(boolVect_p->at(vI) < minVal){
+		      minVal = boolVect_p->at(vI);
+		    minValFile = inFileNames.at(fI);		  
+		    }
+		  }
+		  
+		  isFirstFound = true;
 		}
-		else{
+	      }
+	      
+	      for(Int_t entry = startPos; entry < nEntries1; ++entry){
+		tree_p[fI]->GetEntry(entry);
+		
+		for(unsigned int vI = 0; vI < boolVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
 		  if(boolVect_p->at(vI) > maxVal){
 		    maxVal = boolVect_p->at(vI);
 		    maxValFile = inFileNames.at(fI);		  
@@ -1522,110 +1662,109 @@ int runForestDQM(std::string inConfigName = "")
 		    minValFile = inFileNames.at(fI);		  
 		  }
 		}
-
-		isFirstFound = true;
-	      }
-	    }
-	  	  
-	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
-	      tree_p[fI]->GetEntry(entry);
-
-	      for(unsigned int vI = 0; vI < boolVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)boolVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-
-		    if(!passes) break;
-		  }
-		}
-
-		if(!passes) continue;
-		
-		if(boolVect_p->at(vI) > maxVal){
-		  maxVal = boolVect_p->at(vI);
-		  maxValFile = inFileNames.at(fI);		  
-		}
-		if(boolVect_p->at(vI) < minVal){
-		  minVal = boolVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);		  
-		}
 	      }
 	    }
 	  }
-	}
-	else if(tempClassType.find("short") != std::string::npos){
-	  for(Int_t fI = 0; fI < nFiles; ++fI){
-	    tree_p[fI]->SetBranchStatus("*", 0);
-	    tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
-	    
-	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &shortVect_p);
-
-	    if(isBranchCut){
+	  else if(tempClassType.find("short") != std::string::npos){
+	    for(Int_t fI = 0; fI < nFiles; ++fI){
+	      tree_p[fI]->SetBranchStatus("*", 0);
+	      tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 	      
-	      for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-		if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		  tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
-		  
-		  if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
-		  else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
-		  else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
-		  else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
-		  else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
-		}
-	      }
-	    }
-	    
-	    Int_t nEntries1 = tree_p[fI]->GetEntries();
-	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
-	    
-	    int startPos = 0;
-	    while(!isFirstFound && startPos < nEntries1){
-	      tree_p[fI]->GetEntry(startPos);
+	      tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &shortVect_p);
 	      
-	      ++startPos;
-
-	      for(unsigned int vI = 0; vI < shortVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-
-		    if(!passes) break;
+	      if(isBranchCut){
+		
+		for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		  if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+		    tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
+		    
+		    if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
+		    else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
+		    else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
+		    else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
+		    else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
 		  }
 		}
-
-		if(!passes) continue;
+	      }
+	      
+	      Int_t nEntries1 = tree_p[fI]->GetEntries();
+	      if(eventCountOverride > 0) nEntries1 = eventCountOverride;
+	      
+	      int startPos = 0;
+	      while(!isFirstFound && startPos < nEntries1){
+		tree_p[fI]->GetEntry(startPos);
 		
-		if(!isFirstFound){
-		  minVal = shortVect_p->at(vI);
-		  maxVal = shortVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);
-		  maxValFile = inFileNames.at(fI);
+		++startPos;
+		
+		for(unsigned int vI = 0; vI < shortVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		      
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
+		  if(!isFirstFound){
+		    minVal = shortVect_p->at(vI);
+		    maxVal = shortVect_p->at(vI);
+		    minValFile = inFileNames.at(fI);
+		    maxValFile = inFileNames.at(fI);
+		  }
+		  else{
+		    if(shortVect_p->at(vI) > maxVal){
+		      maxVal = shortVect_p->at(vI);
+		      maxValFile = inFileNames.at(fI);		  
+		    }
+		    if(shortVect_p->at(vI) < minVal){
+		      minVal = shortVect_p->at(vI);
+		      minValFile = inFileNames.at(fI);		  
+		    }
+		  }
+		  
+		  isFirstFound = true;
 		}
-		else{
+	      }
+	      
+	      for(Int_t entry = startPos; entry < nEntries1; ++entry){
+		tree_p[fI]->GetEntry(entry);
+		
+		for(unsigned int vI = 0; vI < shortVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;		    
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
 		  if(shortVect_p->at(vI) > maxVal){
 		    maxVal = shortVect_p->at(vI);
 		    maxValFile = inFileNames.at(fI);		  
@@ -1635,109 +1774,107 @@ int runForestDQM(std::string inConfigName = "")
 		    minValFile = inFileNames.at(fI);		  
 		  }
 		}
-
-		isFirstFound = true;
-	      }
-	    }
-	  	  
-	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
-	      tree_p[fI]->GetEntry(entry);
-
-	      for(unsigned int vI = 0; vI < shortVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Long64_t)shortVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-
-		    if(!passes) break;		    
-		  }
-		}
-
-		if(!passes) continue;
-		
-		if(shortVect_p->at(vI) > maxVal){
-		  maxVal = shortVect_p->at(vI);
-		  maxValFile = inFileNames.at(fI);		  
-		}
-		if(shortVect_p->at(vI) < minVal){
-		  minVal = shortVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);		  
-		}
 	      }
 	    }
 	  }
-	}
-	else if(tempClassType.find("float") != std::string::npos){
-	  std::cout << "HERE FOR " << branchList.at(0).at(bI1) << std::endl;
-
-	  for(Int_t fI = 0; fI < nFiles; ++fI){
-	    tree_p[fI]->SetBranchStatus("*", 0);
-	    tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
+	  else if(tempClassType.find("float") != std::string::npos){
+	    for(Int_t fI = 0; fI < nFiles; ++fI){
+	      tree_p[fI]->SetBranchStatus("*", 0);
+	      tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 	    
-	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &floatVect_p);
-
-	    if(isBranchCut){
-	      for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
-		if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		  tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
-
-		  if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
-		  else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
-		  else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
-		  else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
-		  else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
-		}
-	      }
-	    }
-	    
-	    Int_t nEntries1 = tree_p[fI]->GetEntries();
-	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
-	    
-	    int startPos = 0;
-	    while(!isFirstFound && startPos < nEntries1){
-	      tree_p[fI]->GetEntry(startPos);
+	      tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &floatVect_p);
 	      
-	      ++startPos;
-
-	      for(unsigned int vI = 0; vI < floatVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Double_t)floatVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
+	      if(isBranchCut){
+		for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
+		  if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+		    tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
 		    
-		    if(!passes) break;
+		    if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
+		    else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
+		    else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
+		    else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
+		    else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
 		  }
 		}
-
-		if(!passes) continue;
+	      }
+	      
+	      Int_t nEntries1 = tree_p[fI]->GetEntries();
+	      if(eventCountOverride > 0) nEntries1 = eventCountOverride;
+	      
+	      int startPos = 0;
+	      while(!isFirstFound && startPos < nEntries1){
+		tree_p[fI]->GetEntry(startPos);
 		
-		if(!isFirstFound){
-		  minVal = floatVect_p->at(vI);
-		  maxVal = floatVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);
-		  maxValFile = inFileNames.at(fI);
+		++startPos;
+		
+		for(unsigned int vI = 0; vI < floatVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut((Double_t)floatVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
+		  if(!isFirstFound){
+		    minVal = floatVect_p->at(vI);
+		    maxVal = floatVect_p->at(vI);
+		    minValFile = inFileNames.at(fI);
+		    maxValFile = inFileNames.at(fI);
+		  }
+		  else{
+		    if(floatVect_p->at(vI) > maxVal){
+		      maxVal = floatVect_p->at(vI);
+		      maxValFile = inFileNames.at(fI);		  
+		    }
+		    if(floatVect_p->at(vI) < minVal){
+		      minVal = floatVect_p->at(vI);
+		      minValFile = inFileNames.at(fI);		  
+		    }
+		  }
+		  
+		  isFirstFound = true;
 		}
-		else{
+	      }
+	      
+	      for(Int_t entry = startPos; entry < nEntries1; ++entry){
+		tree_p[fI]->GetEntry(entry);
+		
+		for(unsigned int vI = 0; vI < floatVect_p->size(); ++vI){
+		  bool passes = true;
+
+		  if(isBranchCut){
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut((Double_t)floatVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;
+		    }				  
+		  }
+		  
+		  if(!passes) continue;
+		  
 		  if(floatVect_p->at(vI) > maxVal){
 		    maxVal = floatVect_p->at(vI);
 		    maxValFile = inFileNames.at(fI);		  
@@ -1746,109 +1883,109 @@ int runForestDQM(std::string inConfigName = "")
 		    minVal = floatVect_p->at(vI);
 		    minValFile = inFileNames.at(fI);		  
 		  }
-		}
-
-		isFirstFound = true;
+		}	      
 	      }
-	    }
-	  	  
-	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
-	      tree_p[fI]->GetEntry(entry);
-
-	      for(unsigned int vI = 0; vI < floatVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut((Double_t)floatVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-
-		    if(!passes) break;
-		  }				  
-		}
-
-		if(!passes) continue;
-		
-		if(floatVect_p->at(vI) > maxVal){
-		  maxVal = floatVect_p->at(vI);
-		  maxValFile = inFileNames.at(fI);		  
-		}
-		if(floatVect_p->at(vI) < minVal){
-		  minVal = floatVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);		  
-		}
-	      }	      
-	    }
-	  }	 
-	}
-	else if(tempClassType.find("double") != std::string::npos){
-	  for(Int_t fI = 0; fI < nFiles; ++fI){
-	    tree_p[fI]->SetBranchStatus("*", 0);
-	    tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
-	    
-	    tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &doubleVect_p);
-
-	    if(isBranchCut){
-
-	      for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
-		if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		  tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
-		  
-		  if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
-		  else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
-		  else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
-		  else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
-		  else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
-		}
-	      }
-	    }
-	    
-	    Int_t nEntries1 = tree_p[fI]->GetEntries();
-	    if(eventCountOverride > 0) nEntries1 = eventCountOverride;
-	    
-	    int startPos = 0;
-	    while(!isFirstFound && startPos < nEntries1){
-	      tree_p[fI]->GetEntry(startPos);
+	    }	 
+	  }
+	  else if(tempClassType.find("double") != std::string::npos){
+	    for(Int_t fI = 0; fI < nFiles; ++fI){
+	      tree_p[fI]->SetBranchStatus("*", 0);
+	      tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 	      
-	      ++startPos;
-
-	      for(unsigned int vI = 0; vI < doubleVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut(doubleVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-
-		    if(!passes) break;
+	      tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &doubleVect_p);
+	      
+	      if(isBranchCut){
+		
+		for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
+		  if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+		    tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);
+		    
+		    if(cutIsInt[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(intVectCut_p[cI]));
+		    else if(cutIsBool[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(boolVectCut_p[cI]));
+		    else if(cutIsShort[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(shortVectCut_p[cI]));
+		    else if(cutIsDouble[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(doubleVectCut_p[cI]));
+		    else if(cutIsFloat[cI]) tree_p[fI]->SetBranchAddress(cutVar[cI].c_str(), &(floatVectCut_p[cI]));
 		  }
 		}
-
-		if(!passes) continue;
+	      }
+	      
+	      Int_t nEntries1 = tree_p[fI]->GetEntries();
+	      if(eventCountOverride > 0) nEntries1 = eventCountOverride;
+	      
+	      int startPos = 0;
+	      while(!isFirstFound && startPos < nEntries1){
+		tree_p[fI]->GetEntry(startPos);
 		
-		if(!isFirstFound){
-		  minVal = doubleVect_p->at(vI);
-		  maxVal = doubleVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);
-		  maxValFile = inFileNames.at(fI);
+		++startPos;
+		
+		for(unsigned int vI = 0; vI < doubleVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut(doubleVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
+		  if(!isFirstFound){
+		    minVal = doubleVect_p->at(vI);
+		    maxVal = doubleVect_p->at(vI);
+		    minValFile = inFileNames.at(fI);
+		    maxValFile = inFileNames.at(fI);
+		  }
+		  else{
+		    if(doubleVect_p->at(vI) > maxVal){
+		      maxVal = doubleVect_p->at(vI);
+		      maxValFile = inFileNames.at(fI);		  
+		    }
+		    if(doubleVect_p->at(vI) < minVal){
+		      minVal = doubleVect_p->at(vI);
+		      minValFile = inFileNames.at(fI);		  
+		    }
+		  }
+		  
+		  isFirstFound = true;
 		}
-		else{
+	      }
+	      
+	      for(Int_t entry = startPos; entry < nEntries1; ++entry){
+		tree_p[fI]->GetEntry(entry);
+		
+		for(unsigned int vI = 0; vI < doubleVect_p->size(); ++vI){
+		  bool passes = true;
+		  
+		  if(isBranchCut){
+		    for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
+		      if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
+			passes = valPassesCut(doubleVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      else{
+			if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+			else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
+		      }
+		      
+		      if(!passes) break;
+		    }
+		  }
+		  
+		  if(!passes) continue;
+		  
 		  if(doubleVect_p->at(vI) > maxVal){
 		    maxVal = doubleVect_p->at(vI);
 		    maxValFile = inFileNames.at(fI);		  
@@ -1858,55 +1995,16 @@ int runForestDQM(std::string inConfigName = "")
 		    minValFile = inFileNames.at(fI);		  
 		  }
 		}
-
-		isFirstFound = true;
-	      }
-	    }
-	  	  
-	    for(Int_t entry = startPos; entry < nEntries1; ++entry){
-	      tree_p[fI]->GetEntry(entry);
-
-	      for(unsigned int vI = 0; vI < doubleVect_p->size(); ++vI){
-		bool passes = true;
-
-		if(isBranchCut){
-		  for(unsigned int cI = 0; cI < cutVar.size(); ++cI){		  
-		    if(isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
-		      passes = valPassesCut(doubleVect_p->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-		    else{
-		      if(cutIsInt[cI]) passes = valPassesCut((Long64_t)intVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsBool[cI]) passes = valPassesCut((Long64_t)boolVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsShort[cI]) passes = valPassesCut((Long64_t)shortVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsDouble[cI]) passes = valPassesCut(doubleVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		      else if(cutIsFloat[cI]) passes = valPassesCut((Double_t)floatVectCut_p[cutVarLastPos[cI]]->at(vI), cutStr[cI], isCutAbs[cI]);
-		    }
-
-		    if(!passes) break;
-		  }
-		}
-
-		if(!passes) continue;
-		
-		if(doubleVect_p->at(vI) > maxVal){
-		  maxVal = doubleVect_p->at(vI);
-		  maxValFile = inFileNames.at(fI);		  
-		}
-		if(doubleVect_p->at(vI) < minVal){
-		  minVal = doubleVect_p->at(vI);
-		  minValFile = inFileNames.at(fI);		  
-		}
 	      }
 	    }
 	  }
-	}
+	}       
 	else{
-	  std::cout << "Warning do not know how to handle vector \'" << tempClassType << "\'. return 1" << std::endl;
+	  std::cout << "WARNING: do not know how to handle vector \'" << tempClassType << "\'. return 1" << std::endl;
 	  return 1;
-	}
+	}      
       }
-      //      std::cout << " Max/Min: \'" << branchList.at(0).at(bI1) << ", " << maxVal << "/" << minVal << std::endl;
-    
+       
       std::vector<std::string> histNames;
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	std::string histName = fileTrees.at(0).at(tI) + "_" + branchList.at(0).at(bI1) + "_" + inNickNames.at(fI);
@@ -2016,9 +2114,10 @@ int runForestDQM(std::string inConfigName = "")
       else{	
 	Double_t interval = maxVal - minVal;
 	maxValXForHist += interval/10.;
-	minValXForHist -= interval/10.;
-      }    
+	minValXForHist -= interval/10.;	
+      }
       
+    
       //      std::cout << branchList.at(0).at(bI1) << ", " << maxVal << ", " << minVal << ", " << doLogX << std::endl;
       //      std::cout << " maxValFile: " << maxValFile << std::endl;
       //      std::cout << " minValFile: " << minValFile << std::endl;
@@ -2029,6 +2128,11 @@ int runForestDQM(std::string inConfigName = "")
 	std::cout << "REQUESTED NUMBER OF BINS, " << nBinsActual << ", FOR \'" << branchList.at(0).at(bI1) << "\' EXCEEDS MAXIMUM \'" << nBins << "\' - REVERT TO " << nBins << std::endl;
 	nBinsActual = nBins;
       }
+
+      if(tempClassType.find("int") != std::string::npos || tempClassType.find("short") != std::string::npos){
+	maxVal += 0.5;
+	minVal -= 0.5;
+      }    
       
       if(doLogX) getLogBins(minVal, maxVal, nBinsActual, bins);
       else getLinBins(minVal, maxVal, nBinsActual, bins);
@@ -2036,12 +2140,28 @@ int runForestDQM(std::string inConfigName = "")
       std::string cutString1 = "";
       std::string cutString2 = "NoCut";
       bool isIn = false;
-
+    
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	tree_p[fI]->ResetBranchAddresses();
 	tree_p[fI]->SetBranchStatus("*", 0);
 	tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
      
+      
+	TTree* weightTree_p = nullptr;
+	if(doWeight){
+	  if(isStrSame(weightTree, fileTrees.at(0).at(tI))){
+	    //Tree is same as weight tree, just turn on weight var
+	    tree_p[fI]->SetBranchStatus(weightVar.c_str(), 1);
+	  }
+	  else{//Weight Tree differs - add friend
+	    weightTree_p = (TTree*)inFiles_p[fI]->Get(weightTree.c_str());
+	    weightTree_p->SetBranchStatus("*", 0);
+	    weightTree_p->SetBranchStatus(weightVar.c_str(), 1);
+	    
+	    tree_p[fI]->AddFriend(weightTree_p);
+	  }
+	}
+	
 	if(mapFromVarToCut.count(branchList.at(0).at(bI1)) != 0){
 	  //	  std::cout << "Gets into cuts: " << branchList.at(0).at(bI1) << std::endl;
 	  int pos = getPosOfCutType(mapFromVarToCut[branchList.at(0).at(bI1)][0]);
@@ -2053,11 +2173,12 @@ int runForestDQM(std::string inConfigName = "")
 		break;
 	      }
 	    }
-
+	 	 
 	    //SETTING ALWAYS TRUE FIX ME LATER
 	    isIn = true;
 	    if(isIn){
 	      tree_p[fI]->SetBranchStatus(varName.c_str(), 1);
+	      
 	      for(unsigned int cI = 0; cI < mapFromVarToCut[branchList.at(0).at(bI1)].size(); ++cI){
 		std::string cutVar = mapFromVarToCutVar[branchList.at(0).at(bI1)][cI];
 		tree_p[fI]->SetBranchStatus(cutVar.c_str(), 1);
@@ -2065,11 +2186,7 @@ int runForestDQM(std::string inConfigName = "")
 	      
 	      if(fI == 0){
 		for(unsigned int cI = 0; cI < mapFromVarToCut[branchList.at(0).at(bI1)].size(); ++cI){
-		  //	  std::string cutVar = mapFromVarToCutVar[branchList.at(0).at(bI1)][cI];
-		  //		  tree_p[fI]->SetBranchStatus(cutVar.c_str(), 1);
-
 		  bool isCutAbs = mapFromVarToIsCutAbs[branchList.at(0).at(bI1)][cI];
-
 		  
 		  if(!isCutAbs){
 		    cutString1 = cutString1 + mapFromVarToCut[branchList.at(0).at(bI1)][cI] + " && ";
@@ -2093,18 +2210,44 @@ int runForestDQM(std::string inConfigName = "")
 		while(cutString2.find(" && ") != std::string::npos){
 		  cutString2.replace(cutString2.find(" && "), 4, "_");
 		}
-		while(cutString2.find(".") != std::string::npos){cutString2.replace(cutString2.find("."), 1, "p");}
+		while(cutString2.find(".") != std::string::npos){cutString2.replace(cutString2.find("."), 1, "p");}		
+	      
+		if(doWeight){
+		  std::string treeName = fileTrees.at(0).at(tI);
+		  //HACK, TEMP
+		  if(treeName.substr(treeName.size()-2, 2).find("/t") != std::string::npos){
+		    cutString1 = cutString1 + " && pthat > 0.35*jtpt[0]";
+		  }
+		  //END HACK
+		  
+		  cutString1 = "(" + cutString1 + ")*" + weightVar;
+		}
 	      }
 	    }
 	  }
-	}     
+	}
 
+	if(doWeight && cutString1.size() == 0){
+	  cutString1 = "(" + branchList.at(0).at(bI1) + " >= " + prettyString(minVal-0.01,2,false) + ")*" + weightVar;
+	  cutString2 = branchList.at(0).at(bI1) + "GE" + prettyString(minVal-0.01,2,true);	  
+	}
+
+	
+	std::string treeName = fileTrees.at(0).at(tI);	
+	if(treeName.substr(treeName.size()-2, 2).find("/t") != std::string::npos){
+	  tree_p[fI]->SetBranchStatus("jtpt", 1);
+	  if(doWeight) tree_p[fI]->SetBranchStatus("pthat", 1);		   
+	}
+
+	std::cout << "CUTSTRING1: " << cutString1 << std::endl;
 	histNames.at(fI) = histNames.at(fI) + "_" + cutString2 + "_h";
 	std::string histNameForCanvas = histNames.at(fI) + "_" + cutString2 + "_ForCanvas_h";
 	tempHistForCanvas_p[fI] = new TH1D(histNameForCanvas.c_str(), (";" + branchList.at(0).at(bI1) + ";" + globalYStr).c_str(), 10, minValXForHist, maxValXForHist);
 	
 	tempHist_p[fI] = new TH1D(histNames.at(fI).c_str(), (";" + branchList.at(0).at(bI1) + ";" + globalYStr).c_str(), nBinsActual, bins);
-      
+
+	if(doWeight) setSumW2(tempHist_p[fI]);
+
 	if(eventCountOverride < 0) tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), cutString1.c_str(), "");
 	else tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), cutString1.c_str(), "", eventCountOverride);
 
@@ -2132,11 +2275,19 @@ int runForestDQM(std::string inConfigName = "")
 	  histsToFormat[hI]->GetYaxis()->SetTitleOffset(titleOffset);
 	}
 
-	setSumW2(tempHist_p[fI]);
 
 	if(doEventNorm){
-	  if(eventCountOverride > 0) tempHist_p[fI]->Scale(1./(Double_t)eventCountOverride);
-	  else tempHist_p[fI]->Scale(1./(Double_t)tree_p[fI]->GetEntries());
+	  if(!doWeight){
+	    setSumW2(tempHist_p[fI]);
+
+	    Double_t scaleVal = (Double_t)tree_p[fI]->GetEntries();
+	    if(eventCountOverride > 0 && eventCountOverride < scaleVal) scaleVal = (Double_t)eventCountOverride;
+	    
+	    tempHist_p[fI]->Scale(1.0/scaleVal);
+	  }
+	  else{
+	    tempHist_p[fI]->Scale(1.0/inFilesWeightedCounts[fI]);
+	  }	  
 	}
       }
 
@@ -2208,6 +2359,8 @@ int runForestDQM(std::string inConfigName = "")
       pads_p[1]->cd();
 
       for(Int_t fI = 1; fI < nFiles; ++fI){
+	if(!doWeight && !doEventNorm) setSumW2(tempHist_p[fI]);
+
 	tempHist_p[fI]->Divide(tempHist_p[0]);
 	tempHist_p[fI]->GetXaxis()->SetTitleSize(textSize*(1.0 - padSplit)/padSplit);
 	tempHist_p[fI]->GetYaxis()->SetTitleSize(textSize*(1.0 - padSplit)/padSplit);

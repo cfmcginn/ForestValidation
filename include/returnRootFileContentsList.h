@@ -18,7 +18,7 @@
 #include "include/doGlobalDebug.h"
 #include "include/stringUtil.h"
 
-const std::string tdirStr = "TDirectoryFile";
+std::vector<std::string> tdirStr = {"TDirectory", "TDirectoryFile"};
 
 std::vector<std::string> returnTDirContentsList(TFile*, const std::string, const std::string, const std::string, const Int_t currentLayers, const Int_t nLayersCap, std::vector<std::string>* classList);
 
@@ -35,21 +35,22 @@ std::vector<std::string> returnRootFileContentsList(TFile *inFile_p, const std::
   while((key=(TKey*)next())){
     const std::string name = key->GetName();
     const std::string className = key->GetClassName();
-    
-    if(isStrSame(className, tdirStr)){
-      std::vector<std::string>* tempClassList = new std::vector<std::string>;
-      std::vector<std::string> tempReturnList = returnTDirContentsList(inFile_p, name, classFilter, nameFilter, 0, nLayersCap, tempClassList);
 
-      
-      const Int_t nTempKeys = tempReturnList.size();
-      for(Int_t tempIter = 0; tempIter < nTempKeys; tempIter++){
-	returnList.push_back(tempReturnList.at(tempIter));
-	if(classList != NULL) classList->push_back(tempClassList->at(tempIter));
+    for(unsigned int tI = 0; tI < tdirStr.size(); ++tI){
+      if(isStrSame(className, tdirStr[tI])){
+	std::vector<std::string>* tempClassList = new std::vector<std::string>;
+	std::vector<std::string> tempReturnList = returnTDirContentsList(inFile_p, name, classFilter, nameFilter, 0, nLayersCap, tempClassList);
+	
+	
+	const Int_t nTempKeys = tempReturnList.size();
+	for(Int_t tempIter = 0; tempIter < nTempKeys; tempIter++){
+	  returnList.push_back(tempReturnList.at(tempIter));
+	  if(classList != NULL) classList->push_back(tempClassList->at(tempIter));
+	}
+	
+	delete tempClassList;
       }
-
-      delete tempClassList;
     }
-    
 
     if(classFilter.size() != 0)
       if(className.size() != classFilter.size() || className.find(classFilter) == std::string::npos) continue;   
@@ -80,17 +81,19 @@ std::vector<std::string> returnTDirContentsList(TFile* inFile_p, const std::stri
     const std::string name = key->GetName();
     const std::string className = key->GetClassName();
 
-    if(isStrSame(className, tdirStr)){
-      std::vector<std::string>* tempClassList = new std::vector<std::string>;
-      std::vector<std::string> tempReturnList = returnTDirContentsList(inFile_p, dirName + "/" + name, classFilter, nameFilter, currentLayers+1, nLayersCap, tempClassList);
-      
-      const Int_t nTempKeys = tempReturnList.size();
-      for(Int_t tempIter = 0; tempIter < nTempKeys; tempIter++){
-        returnList.push_back(tempReturnList.at(tempIter));
-	if(classList != NULL) classList->push_back(tempClassList->at(tempIter));
+    for(unsigned int tI = 0; tI < tdirStr.size(); ++tI){
+      if(isStrSame(className, tdirStr[tI])){
+	std::vector<std::string>* tempClassList = new std::vector<std::string>;
+	std::vector<std::string> tempReturnList = returnTDirContentsList(inFile_p, dirName + "/" + name, classFilter, nameFilter, currentLayers+1, nLayersCap, tempClassList);
+	
+	const Int_t nTempKeys = tempReturnList.size();
+	for(Int_t tempIter = 0; tempIter < nTempKeys; tempIter++){
+	  returnList.push_back(tempReturnList.at(tempIter));
+	  if(classList != NULL) classList->push_back(tempClassList->at(tempIter));
+	}
+	
+	delete tempClassList;
       }
-
-      delete tempClassList;
     }
 
     if(classFilter.size() != 0)
@@ -121,14 +124,16 @@ TList* returnRootFileContentsList(TFile *inFile_p, const Int_t nLayersCap = -1)
     const std::string name = key->GetName();
     const std::string className = key->GetClassName();
     
-    if(isStrSame(className, tdirStr)){
-      TList* tempReturnList = returnTDirContentsList(inFile_p, name, 0, nLayersCap);
-      if(tempReturnList == NULL) continue;
-      TIter tempNext(tempReturnList);
-      TObject* obj = NULL;
-
-      while((obj = tempNext())){
-	returnList->AddLast(obj);
+    for(unsigned int tI = 0; tI < tdirStr.size(); ++tI){
+      if(isStrSame(className, tdirStr[tI])){
+	TList* tempReturnList = returnTDirContentsList(inFile_p, name, 0, nLayersCap);
+	if(tempReturnList == NULL) continue;
+	TIter tempNext(tempReturnList);
+	TObject* obj = NULL;
+	
+	while((obj = tempNext())){
+	  returnList->AddLast(obj);
+	}
       }
     }
   }
@@ -153,15 +158,17 @@ TList* returnTDirContentsList(TFile* inFile_p, const std::string dirName, const 
     const std::string name = key->GetName();
     const std::string className = key->GetClassName();
 
-    if(isStrSame(className, tdirStr)){
-      TList* tempReturnList = returnTDirContentsList(inFile_p, dirName + "/" + name, currentLayers+1, nLayersCap);
-      if(tempReturnList == NULL) continue;
-
-      TIter tempNext(tempReturnList);
-      TObject* obj = NULL;
-
-      while( (obj = tempNext()) ){
-	returnList->AddLast(obj);
+    for(unsigned int tI = 0; tI < tdirStr.size(); ++tI){
+      if(isStrSame(className, tdirStr[tI])){
+	TList* tempReturnList = returnTDirContentsList(inFile_p, dirName + "/" + name, currentLayers+1, nLayersCap);
+	if(tempReturnList == NULL) continue;
+	
+	TIter tempNext(tempReturnList);
+	TObject* obj = NULL;
+	
+	while( (obj = tempNext()) ){
+	  returnList->AddLast(obj);
+	}
       }
     }
   }
