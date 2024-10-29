@@ -1,0 +1,24 @@
+#This is a configuration file
+
+FOOTERLINE: CMS HI ECal Validation
+
+INFILENAME.0: /home/cfm/MITHIG/tempPlots2024/Oct28/HiForestMiniAOD_nominal.root
+INFILENAME.1: /home/cfm/MITHIG/tempPlots2024/Oct28/HiForestMiniAOD_ZS10p0.root
+
+GLOBALNICKNAME: ZSCheck
+
+NICKNAME.0: ZS8p0
+NICKNAME.1: ZS10p0
+
+#Nominally you can select ttrees to test on but right now this is broken - fix
+#TREESELECT.0: particleFlowAnalyser/pftree
+#TREESELECT.1: ak4PFJetAnalyzer/t
+#TREESELECT.2: akCs4PFJetAnalyzer/t
+#TREESELECT.3: akFlowPuCs4PFJetAnalyzer/t
+DOEVENTNORM: 0
+EVENTCOUNTOVERRIDE: -1
+
+# BIG CHANGE ADDING EVENT-BY-EVENT WEIGHTING
+DOWEIGHT: 0
+WEIGHTTREE: hiEvtAnalyzer/HiTree
+WEIGHTVAR: weight

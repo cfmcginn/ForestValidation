@@ -1,0 +1,24 @@
+#This is a configuration file
+
+FOOTERLINE: CMS HI ECal Validation for Jets
+
+INFILENAME.0: /home/cfm/MITHIG/tempPlots2024/Oct23/HiForestMiniAOD_pre7_NoErrors.root
+INFILENAME.1: /home/cfm/MITHIG/tempPlots2024/Oct23/HiForestMiniAOD_pre7_HasErrors.root
+
+GLOBALNICKNAME: PURhoProducer
+
+NICKNAME.0: NoErrors
+NICKNAME.1: HasErrors
+
+#Nominally you can select ttrees to test on but right now this is broken - fix
+#TREESELECT.0: particleFlowAnalyser/pftree
+#TREESELECT.1: ak4PFJetAnalyzer/t
+#TREESELECT.2: akCs4PFJetAnalyzer/t
+#TREESELECT.3: akFlowPuCs4PFJetAnalyzer/t
+DOEVENTNORM: 0
+EVENTCOUNTOVERRIDE: -1
+
+# BIG CHANGE ADDING EVENT-BY-EVENT WEIGHTING
+DOWEIGHT: 0
+WEIGHTTREE: hiEvtAnalyzer/HiTree
+WEIGHTVAR: weight

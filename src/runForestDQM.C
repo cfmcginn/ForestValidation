@@ -2,6 +2,7 @@
 ///For validating forest
 //cpp dependencies
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -944,7 +945,7 @@ int runForestDQM(std::string inConfigName = "")
   kirchnerPalette col;
   TDatime date;
   const std::string dateStr = std::to_string(date.GetDate());
-  const Int_t nBins = 40;
+  const Int_t nMaxBins = 100;
 
   const Int_t colors[fileCap] = {1, col.getColor(2), col.getColor(0), col.getColor(3), col.getColor(2), col.getColor(0), col.getColor(3), col.getColor(2)};
   const Int_t styles[fileCap] = {20, 25, 28, 27, 46, 24, 42, 44};
@@ -1260,7 +1261,7 @@ int runForestDQM(std::string inConfigName = "")
       pairVars2Found.push_back(false);
       pairCutVarsFound.push_back(false);
     }
-
+  
     for(unsigned int bI1 = 0; bI1 < branchList.at(0).size(); ++bI1){
       std::cout << " Processing \'" << branchList.at(0).at(bI1) << "\'..." << std::endl;
 
@@ -1272,6 +1273,8 @@ int runForestDQM(std::string inConfigName = "")
       std::string tempClassType = tempLeaf->GetTypeName();
       bool varIsVect = tempClassType.find("vector") != std::string::npos;
 
+      std::cout << "  Branch class: " << tempClassType << std::endl;
+      
       bool maxValIsSet = false;      
       bool minValIsSet = false;      
       Double_t maxVal = -999999;
@@ -1435,7 +1438,7 @@ int runForestDQM(std::string inConfigName = "")
 	      doubleVectCut_p.push_back(nullptr);
 	    }
 	  }
-	  
+		  
 	  bool isFirstFound = false;
 	  if(tempClassType.find("int") != std::string::npos){
 	    for(Int_t fI = 0; fI < nFiles; ++fI){
@@ -1443,9 +1446,8 @@ int runForestDQM(std::string inConfigName = "")
 	      tree_p[fI]->SetBranchStatus(branchList.at(0).at(bI1).c_str(), 1);
 	      
 	      tree_p[fI]->SetBranchAddress(branchList.at(0).at(bI1).c_str(), &intVect_p);
-	      
+	   
 	      if(isBranchCut){
-		
 		for(unsigned int cI = 0; cI < cutVar.size(); ++cI){
 		  if(!isStrSame(cutVar[cI], branchList.at(0).at(bI1))){
 		    tree_p[fI]->SetBranchStatus(cutVar[cI].c_str(), 1);       
@@ -1491,7 +1493,7 @@ int runForestDQM(std::string inConfigName = "")
 		  }
 		  
 		  if(!passes) continue;
-		  
+
 		  if(!isFirstFound){
 		    minVal = intVect_p->at(vI);
 		    maxVal = intVect_p->at(vI);
@@ -1539,7 +1541,7 @@ int runForestDQM(std::string inConfigName = "")
 		  }
 		  
 		  if(!passes) continue;
-		  
+
 		  if(intVect_p->at(vI) > maxVal){
 		    maxVal = intVect_p->at(vI);
 		    maxValFile = inFileNames.at(fI);		  
@@ -1718,7 +1720,7 @@ int runForestDQM(std::string inConfigName = "")
 		  }
 		  
 		  if(!passes) continue;
-		  
+
 		  if(!isFirstFound){
 		    minVal = shortVect_p->at(vI);
 		    maxVal = shortVect_p->at(vI);
@@ -1764,7 +1766,7 @@ int runForestDQM(std::string inConfigName = "")
 		  }
 		  
 		  if(!passes) continue;
-		  
+
 		  if(shortVect_p->at(vI) > maxVal){
 		    maxVal = shortVect_p->at(vI);
 		    maxValFile = inFileNames.at(fI);		  
@@ -1828,6 +1830,10 @@ int runForestDQM(std::string inConfigName = "")
 		  }
 		  
 		  if(!passes) continue;
+
+		  //Try to avoid infs - some infs can be stored in TTrees
+		  if(std::isnan(floatVect_p->at(vI))) continue;
+		  if(std::isinf(floatVect_p->at(vI))) continue;
 		  
 		  if(!isFirstFound){
 		    minVal = floatVect_p->at(vI);
@@ -1874,6 +1880,10 @@ int runForestDQM(std::string inConfigName = "")
 		  }
 		  
 		  if(!passes) continue;
+
+		  //Try to avoid infs - some infs can be stored in TTrees
+		  if(std::isnan(floatVect_p->at(vI))) continue;
+		  if(std::isinf(floatVect_p->at(vI))) continue;
 		  
 		  if(floatVect_p->at(vI) > maxVal){
 		    maxVal = floatVect_p->at(vI);
@@ -1939,6 +1949,10 @@ int runForestDQM(std::string inConfigName = "")
 		  }
 		  
 		  if(!passes) continue;
+
+		  //Try to avoid infs - some infs can be stored in TTrees
+		  if(std::isnan(doubleVect_p->at(vI))) continue;
+		  if(std::isinf(doubleVect_p->at(vI))) continue;
 		  
 		  if(!isFirstFound){
 		    minVal = doubleVect_p->at(vI);
@@ -1985,6 +1999,10 @@ int runForestDQM(std::string inConfigName = "")
 		  }
 		  
 		  if(!passes) continue;
+
+		  //Try to avoid infs - some infs can be stored in TTrees
+		  if(std::isnan(doubleVect_p->at(vI))) continue;
+		  if(std::isinf(doubleVect_p->at(vI))) continue;
 		  
 		  if(doubleVect_p->at(vI) > maxVal){
 		    maxVal = doubleVect_p->at(vI);
@@ -1998,13 +2016,19 @@ int runForestDQM(std::string inConfigName = "")
 	      }
 	    }
 	  }
-	}       
+	}
 	else{
 	  std::cout << "WARNING: do not know how to handle vector \'" << tempClassType << "\'. return 1" << std::endl;
 	  return 1;
 	}      
       }
-       
+    
+    
+      if(branchList.at(0).at(bI1).find("trkPtError") != std::string::npos){
+	std::cout << "CHECK 2 BRANCH MIN-MAX: " << branchList.at(0).at(bI1) << ", " << minVal << "-" << maxVal << std::endl;
+      }
+
+      
       std::vector<std::string> histNames;
       for(Int_t fI = 0; fI < nFiles; ++fI){
 	std::string histName = fileTrees.at(0).at(tI) + "_" + branchList.at(0).at(bI1) + "_" + inNickNames.at(fI);
@@ -2027,7 +2051,7 @@ int runForestDQM(std::string inConfigName = "")
       pads_p[0]->Draw("SAME");
       pads_p[0]->SetTopMargin(0.4*padLeftMargin/(1.0-padSplit));
       pads_p[0]->SetLeftMargin(padLeftMargin);
-      pads_p[0]->SetRightMargin(0.01);
+      pads_p[0]->SetRightMargin(0.5*padLeftMargin);
       pads_p[0]->SetBottomMargin(0.0);
 
       pads_p[1] = new TPad("pads1", "", 0.0, 0.00, 1.0, padSplit);
@@ -2035,20 +2059,18 @@ int runForestDQM(std::string inConfigName = "")
       pads_p[1]->Draw("SAME");
       pads_p[1]->SetTopMargin(0.0);
       pads_p[1]->SetLeftMargin(padLeftMargin);
-      pads_p[1]->SetRightMargin(0.01);
+      pads_p[1]->SetRightMargin(0.5*padLeftMargin);
       pads_p[1]->SetBottomMargin(0.8*padLeftMargin/padSplit);
 
       if(TMath::Abs(minVal - maxVal) < 0.000000001){
 	minVal -= 1;
 	maxVal +=1;
-	//	std::cout << "Resetting min/maxVal: " << branchList.at(0).at(bI1) << std::endl;
       }
-      //      else  std::cout << "Not-resetting: " << branchList.at(0).at(bI1) << std::endl;
     
       TH1D* tempHistForCanvas_p[nFiles];
       TH1D* tempHist_p[nFiles];
 
-      Double_t bins[nBins+1];
+      Double_t bins[nMaxBins+1];
       //      bool doLogX = maxVal - minVal > 300 && minVal > 0;
 
       for(unsigned int pI = 0; pI < pairVars1.size(); ++pI){
@@ -2116,23 +2138,40 @@ int runForestDQM(std::string inConfigName = "")
 	maxValXForHist += interval/10.;
 	minValXForHist -= interval/10.;	
       }
-      
-    
-      //      std::cout << branchList.at(0).at(bI1) << ", " << maxVal << ", " << minVal << ", " << doLogX << std::endl;
-      //      std::cout << " maxValFile: " << maxValFile << std::endl;
-      //      std::cout << " minValFile: " << minValFile << std::endl;
 
-      Int_t nBinsActual = nBins;
-      if(nBinOverrideMap.count(branchList.at(0).at(bI1)) > 0) nBinsActual = nBinOverrideMap[branchList.at(0).at(bI1)];
-      if(nBinsActual > nBins){
-	std::cout << "REQUESTED NUMBER OF BINS, " << nBinsActual << ", FOR \'" << branchList.at(0).at(bI1) << "\' EXCEEDS MAXIMUM \'" << nBins << "\' - REVERT TO " << nBins << std::endl;
-	nBinsActual = nBins;
-      }
-
-      if(tempClassType.find("int") != std::string::npos || tempClassType.find("short") != std::string::npos){
+      Int_t nBinsActual = nMaxBins;
+      if(tempClassType.find("int") != std::string::npos || tempClassType.find("short") != std::string::npos || tempClassType.find("bool") != std::string::npos || tempClassType == "Int_t"){
 	maxVal += 0.5;
 	minVal -= 0.5;
+
+	//set it to the values of the ints, centered on bin values
+	nBinsActual = maxVal - minVal;
+
+	if(maxValXForHist < maxVal) maxValXForHist = maxVal;
+	if(minValXForHist > minVal) minValXForHist = minVal;
       }    
+
+      //Check bin override map first
+      if(nBinOverrideMap.count(branchList.at(0).at(bI1)) > 0) nBinsActual = nBinOverrideMap[branchList.at(0).at(bI1)];
+
+      //check if int or Int_t can be reduced to something reasonable that maintains even int-like coverage by dividing cleanly
+      if(tempClassType.find("int") != std::string::npos || tempClassType.find("Int_t") != std::string::npos){
+	for(unsigned int divVal = 2; divVal <= 10; ++divVal){
+	  if(nBinsActual%divVal == 0){
+	    if(nBinsActual/divVal <= nMaxBins){
+	      nBinsActual /= divVal;
+	      break;
+	    }
+	  }
+	}	
+      }
+
+      //If we still exceed nMaxBins, set to nMaxBins
+      if(nBinsActual > nMaxBins){
+	std::cout << "REQUESTED NUMBER OF BINS, " << nBinsActual << ", FOR \'" << branchList.at(0).at(bI1) << "\' EXCEEDS MAXIMUM \'" << nMaxBins << "\' - REVERT TO " << nMaxBins << std::endl;
+	nBinsActual = nMaxBins;
+      }
+    
       
       if(doLogX) getLogBins(minVal, maxVal, nBinsActual, bins);
       else getLinBins(minVal, maxVal, nBinsActual, bins);
@@ -2246,6 +2285,14 @@ int runForestDQM(std::string inConfigName = "")
 	
 	tempHist_p[fI] = new TH1D(histNames.at(fI).c_str(), (";" + branchList.at(0).at(bI1) + ";" + globalYStr).c_str(), nBinsActual, bins);
 
+	if(branchList.at(0).at(bI1).find("trkPtError") != std::string::npos){
+	  std::cout << " BIN CHECK: " << branchList.at(0).at(bI1) << std::endl;
+	  for(Int_t bCheck = 0; bCheck < nBinsActual; ++bCheck){
+	    std::cout << " " << bCheck << "/" << nBinsActual << ": " << bins[bCheck] << "-" << bins[bCheck+1] << std::endl;
+	  }
+	}
+
+	
 	if(doWeight) setSumW2(tempHist_p[fI]);
 
 	if(eventCountOverride < 0) tree_p[fI]->Project(histNames.at(fI).c_str(), branchList.at(0).at(bI1).c_str(), cutString1.c_str(), "");
@@ -2315,7 +2362,7 @@ int runForestDQM(std::string inConfigName = "")
       bool doLogY = getDoLog(minVal, maxVal, 2);
       if(doLogYOverrideMap.count(branchList.at(0).at(bI1)) > 0) doLogY = doLogYOverrideMap[branchList.at(0).at(bI1)];      
 
-      if(interval > 1000 || doLogY){ 
+      if(doLogY){ 
 	maxVal *= 10;
 	minValLogY /= 10;
       }
@@ -2324,7 +2371,7 @@ int runForestDQM(std::string inConfigName = "")
 	if(minVal - interval/10 > 0 || minVal < 0) minVal -= interval/10;
 	else minVal = 0;
       }
-      
+     
       
       tempHistForCanvas_p[0]->SetMaximum(maxVal);
       if(doLogY) tempHistForCanvas_p[0]->SetMinimum(minValLogY);
@@ -2500,7 +2547,7 @@ int runForestDQM(std::string inConfigName = "")
 
       std::string histNameDenom = fileTrees.at(0).at(tI) + "_" + pairVars1.at(pI) + "_" + pairVars2.at(pI) + "_" + cutString2 + "_" + inNickNames.at(0) + "_h";
       while(histNameDenom.find("/") != std::string::npos){histNameDenom.replace(histNameDenom.find("/"), 1, "_");}
-      TH2D* histDenom_p = new TH2D(histNameDenom.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
+      TH2D* histDenom_p = new TH2D(histNameDenom.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nMaxBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nMaxBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
 
 	  
       if(eventCountOverride < 0) tree_p[0]->Project(histNameDenom.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), cutString1.c_str(), "");
@@ -2542,7 +2589,7 @@ int runForestDQM(std::string inConfigName = "")
 
 	  std::string histName = fileTrees.at(0).at(tI) + "_" + pairVars1.at(pI) + "_" + pairVars2.at(pI) + "_" + cutString2 + "_" + inNickNames.at(hI) + "_h";
 	  while(histName.find("/") != std::string::npos){histName.replace(histName.find("/"), 1, "_");}
-	  TH2D* hist_p = new TH2D(histName.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
+	  TH2D* hist_p = new TH2D(histName.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nMaxBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nMaxBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
 	  	
 	  tree_p[hI]->ResetBranchAddresses();
 	  tree_p[hI]->SetBranchStatus("*", 0);

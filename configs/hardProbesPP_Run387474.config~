@@ -1,0 +1,42 @@
+#This is a configuration file
+
+FOOTERLINE: CMS Validation 
+
+INFILENAME.0: /home/cfm/MITHIG/tempPlots2024/Oct28/rapidValidation_PhysicsPPRefHardProbes0_387474.root
+INFILENAME.1: /home/cfm/MITHIG/tempPlots2024/Oct28/rapidValidation_PhysicsPPRefHardProbes0_387474.root
+
+GLOBALNICKNAME: HardProbesPPRun387474
+
+NICKNAME.0: Run387474
+NICKNAME.1: SameRun
+
+TREESELECT.0: ak4PFJetAnalyzer/t
+#TREESELECT.1: ggHiNtuplizer/EventTree
+#TREESELECT.2: ppTracks/trackTree
+
+#Nominally you can select ttrees to test on but right now this is broken - fix
+#TREESELECT.0: particleFlowAnalyser/pftree
+#TREESELECT.1: ak4PFJetAnalyzer/t
+#TREESELECT.2: akCs4PFJetAnalyzer/t
+#TREESELECT.3: akFlowPuCs4PFJetAnalyzer/t
+DOEVENTNORM: 0
+EVENTCOUNTOVERRIDE: -1
+
+# BIG CHANGE ADDING EVENT-BY-EVENT WEIGHTING
+DOWEIGHT: 0
+WEIGHTTREE: hiEvtAnalyzer/HiTree
+WEIGHTVAR: weight
+
+
+#Cuts
+CUT.0:jtPfNHF:jtpt>20.0,abs(jteta)<2.4,jtPfNHF>-0.01,jtPfNHF<1.01
+CUT.1:jtPfCHF:jtpt>20.0,abs(jteta)<2.4,jtPfCHF>-0.01,jtPfCHF<1.01
+CUT.2:jtPfNEF:jtpt>20.0,abs(jteta)<2.4,jtPfNEF>-0.01,jtPfNEF<1.01
+CUT.3:jtPfCEF:jtpt>20.0,abs(jteta)<2.4,jtPfCEF>-0.01,jtPfCEF<1.01
+CUT.4:jtPfMUF:jtpt>20.0,abs(jteta)<2.4,jtPfMUF>-0.01,jtPfMUF<1.01
+
+CUT.5:jtPfNHM:jtpt>20.0,abs(jteta)<2.4
+CUT.6:jtPfCHM:jtpt>20.0,abs(jteta)<2.4
+CUT.7:jtPfNEM:jtpt>20.0,abs(jteta)<2.4
+CUT.8:jtPfCEM:jtpt>20.0,abs(jteta)<2.4
+CUT.9:jtPfMUM:jtpt>20.0,abs(jteta)<2.4
