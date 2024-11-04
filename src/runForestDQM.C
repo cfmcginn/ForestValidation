@@ -17,6 +17,7 @@
 #include "TH1F.h"
 #include "TH2D.h"
 #include "TLeaf.h"
+#include "TLatex.h"
 #include "TLegend.h"
 #include "TLine.h"
 #include "TMath.h"
@@ -617,7 +618,7 @@ void doPlotTexSlide(std::ofstream* fileTex, std::string inTreeName, std::string 
 
 double getNonZeroTH2Min(TH2* inHist_p)
 {
-  double nonZeroTH2Min = inHist_p->GetBinContent(1, 1);
+  double nonZeroTH2Min = TMath::Max(inHist_p->GetMaximum(), 10000.0);
 
   for(Int_t bIX = 0; bIX < inHist_p->GetNbinsX()+1; ++bIX){
     for(Int_t bIY = 0; bIY < inHist_p->GetNbinsY()+1; ++bIY){
@@ -820,9 +821,9 @@ int runForestDQM(std::string inConfigName = "")
 
   std::vector<std::string> pairVars1;
   std::vector<std::string> pairVars2;
-  std::vector<std::string> pairCutVars;
-  std::vector<std::string> pairCutTypes;
-  std::vector<std::string> pairCutVals;
+  std::vector<std::vector<std::string> > pairCutVars;
+  std::vector<std::vector<std::string> > pairCutTypes;
+  std::vector<std::vector<std::string> > pairCutVals;
 
   std::vector<double> pairVarsMin1;
   std::vector<double> pairVarsMin2;
@@ -844,26 +845,31 @@ int runForestDQM(std::string inConfigName = "")
 	std::string var2 = varStr.substr(0, varStr.find(":"));
 	varStr.replace(0, varStr.find(":")+1, "");
 
-	std::string var3 = "";
-	std::string cut3 = "";
-	std::string cutVal3 = "";
+	std::vector<std::string> var3 = {};
+	std::vector<std::string> cut3 = {};
+	std::vector<std::string> cutVal3 = {};
 
-	if(varStr.size() != 0){
-	  cut3 = getCompString(varStr);
-	  
-	  if(cut3.size() != 0){
-	    var3 = varStr.substr(0, varStr.find(cut3));
-	    varStr.replace(0, varStr.find(cut3)+cut3.size(), "");
-	    cutVal3 = varStr;
+	while(varStr.size() != 0){
+	  if(varStr.substr(varStr.size()-1,1).find(":") == std::string::npos) varStr = varStr + ":";
+	  std::string tempVarStr = varStr.substr(0, varStr.find(":"));
+	  varStr.replace(0,varStr.find(":")+1, "");
+	  std::string tempCut3 = getCompString(tempVarStr);
+	  cut3.push_back(tempCut3);
+
+	  if(tempCut3.size() != 0){
+	    var3.push_back(tempVarStr.substr(0, tempVarStr.find(tempCut3)));
+	    tempVarStr.replace(0, tempVarStr.find(tempCut3)+tempCut3.size(), "");
+	    cutVal3.push_back(tempVarStr);
 	  }
-	  else std::cout << "WARNING: 2-D GIVEN BUT NO VALID COMPARISON STRING. PROCEEDING UNCUT" << std::endl;
+	  else{
+	    var3.push_back("");
+	    cutVal3.push_back("");
+	  }
 	}
 
 	pairVars1.push_back(var1);
 	pairVars2.push_back(var2);	
 
-	std::cout << "PAIR CUT VAR: " << var3 << ", " << cut3 << ", " << cutVal3 << std::endl;
-	 
 	pairCutVars.push_back(var3);
 	pairCutTypes.push_back(cut3);
 	pairCutVals.push_back(cutVal3);
@@ -933,22 +939,14 @@ int runForestDQM(std::string inConfigName = "")
 
   std::cout << "Processing the following potential pairs in all TTree: " << std::endl;
   for(unsigned int i = 0; i < pairVars1.size(); ++i){
-    std::cout << " " << i << "/" << pairVars1.size() << ": " << pairVars1.at(i) << ":" << pairVars2.at(i) << ":" << pairCutVars.at(i) << std::endl;
+    std::cout << " " << i << "/" << pairVars1.size() << ": " << pairVars1.at(i) << ":" << pairVars2.at(i) << std::endl;
   }
-
-  /*
-  std::cout << "Full cut list: " << std::endl;
-  for(auto const& cut : mapFromVarToCut){
-    std::cout << " \'" << cut.first << "\', \'" << cut.second << "\', \'" << mapFromVarToCutVar[cut.first] << "\'" << std::endl;
-  }
-  */
-  //  return 1;
 
   Double_t minDeltaVal = 0.000000001;
   kirchnerPalette col;
   TDatime date;
   const std::string dateStr = std::to_string(date.GetDate());
-  const Int_t nMaxBins = 100;
+  const Int_t nMaxBins = 80;
 
   const Int_t colors[fileCap] = {1, col.getColor(2), col.getColor(0), col.getColor(3), col.getColor(2), col.getColor(0), col.getColor(3), col.getColor(2)};
   const Int_t styles[fileCap] = {20, 25, 28, 27, 46, 24, 42, 44};
@@ -1259,12 +1257,16 @@ int runForestDQM(std::string inConfigName = "")
     
     std::vector<bool> pairVars1Found;
     std::vector<bool> pairVars2Found;
-    std::vector<bool> pairCutVarsFound;
+    std::vector<std::vector<bool> > pairCutVarsFound;
   
     for(unsigned int i = 0; i < pairVars1.size(); ++i){
       pairVars1Found.push_back(false);
       pairVars2Found.push_back(false);
-      pairCutVarsFound.push_back(false);
+      pairCutVarsFound.push_back({});
+
+      for(unsigned int j = 0; j < pairCutVars[i].size(); ++j){
+	pairCutVarsFound[i].push_back(false);
+      }
     }
   
     for(unsigned int bI1 = 0; bI1 < branchList.at(0).size(); ++bI1){
@@ -2211,7 +2213,7 @@ int runForestDQM(std::string inConfigName = "")
 
       Double_t bins[nMaxBins+1];
       //      bool doLogX = maxVal - minVal > 300 && minVal > 0;
-
+    
       for(unsigned int pI = 0; pI < pairVars1.size(); ++pI){
 	if(isStrSame(branchList.at(0).at(bI1), pairVars1.at(pI))){
 	  pairVars1Found.at(pI) = true;
@@ -2263,7 +2265,10 @@ int runForestDQM(std::string inConfigName = "")
 	    }
 	  }
 	}
-	else if(isStrSame(branchList.at(0).at(bI1), pairCutVars.at(pI))) pairCutVarsFound.at(pI) = true;
+      
+	for(unsigned int pI2 = 0; pI2 < pairCutVars[pI].size(); ++pI2){
+	  if(isStrSame(branchList.at(0).at(bI1), pairCutVars.at(pI).at(pI2))) pairCutVarsFound.at(pI).at(pI2) = true;
+	}
       }
 
       bool doLogX = getDoLog(minVal, maxVal, 2);
@@ -2680,7 +2685,13 @@ int runForestDQM(std::string inConfigName = "")
     for(unsigned int pI = 0; pI < pairVars1Found.size(); ++pI){
       if(!pairVars1Found.at(pI)) continue;
       if(!pairVars2Found.at(pI)) continue;
-    
+
+      //We can override if cuts exist
+      double localPairVarsMin1 = pairVarsMin1[pI];
+      double localPairVarsMin2 = pairVarsMin2[pI];
+      double localPairVarsMax1 = pairVarsMax1[pI];
+      double localPairVarsMax2 = pairVarsMax2[pI];
+      
       tree_p[0]->ResetBranchAddresses();
       tree_p[0]->SetBranchStatus("*", 0);
       tree_p[0]->SetBranchStatus(pairVars1.at(pI).c_str(), 1);
@@ -2688,19 +2699,35 @@ int runForestDQM(std::string inConfigName = "")
 
       std::string cutString1 = "";
       std::string cutString2 = "NoCut";
-      if(pairCutVarsFound.at(pI)){
-	tree_p[0]->SetBranchStatus(pairCutVars.at(pI).c_str(), 1);
-	cutString1 = pairCutVars.at(pI) + pairCutTypes.at(pI) + pairCutVals.at(pI);
-	cutString2 = findAndReplaceCutTypes(cutString1);
-	while(cutString2.find(".") != std::string::npos){cutString2.replace(cutString2.find("."), 1, "p");}
+
+      for(unsigned int pI2 = 0; pI2 < pairCutVarsFound.at(pI).size(); ++pI2){
+	if(pairCutVarsFound.at(pI).at(pI2)){
+	  tree_p[0]->SetBranchStatus(pairCutVars.at(pI).at(pI2).c_str(), 1);
+
+	  //constrain the local range cuts depending on cut vars
+	  if(isStrSame(pairCutVars.at(pI).at(pI2), pairVars1.at(pI))){
+	    if(pairCutTypes.at(pI).at(pI2).find(">") != std::string::npos) localPairVarsMin1 = std::stod(pairCutVals.at(pI).at(pI2));
+	    else if(pairCutTypes.at(pI).at(pI2).find("<") != std::string::npos) localPairVarsMax1 = std::stod(pairCutVals.at(pI).at(pI2));
+	  }
+	  else if(isStrSame(pairCutVars.at(pI).at(pI2), pairVars2.at(pI))){
+	    if(pairCutTypes.at(pI).at(pI2).find(">") != std::string::npos) localPairVarsMin2 = std::stod(pairCutVals.at(pI).at(pI2));
+	    else if(pairCutTypes.at(pI).at(pI2).find("<") != std::string::npos) localPairVarsMax2 = std::stod(pairCutVals.at(pI).at(pI2));
+	  }
+	  
+	  if(cutString1.size() == 0) cutString1 = pairCutVars.at(pI).at(pI2) + pairCutTypes.at(pI).at(pI2) + pairCutVals.at(pI).at(pI2);
+	  else cutString1 = cutString1 + " && " + pairCutVars.at(pI).at(pI2) + pairCutTypes.at(pI).at(pI2) + pairCutVals.at(pI).at(pI2);
+	}
       }
-
-
+      cutString2 = findAndReplaceCutTypes(cutString1);
+      while(cutString2.find(".") != std::string::npos){cutString2.replace(cutString2.find("."), 1, "p");}      
+      while(cutString2.find(" && ") != std::string::npos){
+	cutString2.replace(cutString2.find(" && "), 4, "_");
+      }
+                  
       std::string histNameDenom = fileTrees.at(0).at(tI) + "_" + pairVars1.at(pI) + "_" + pairVars2.at(pI) + "_" + cutString2 + "_" + inNickNames.at(0) + "_h";
       while(histNameDenom.find("/") != std::string::npos){histNameDenom.replace(histNameDenom.find("/"), 1, "_");}
-      TH2D* histDenom_p = new TH2D(histNameDenom.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nMaxBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nMaxBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
+      TH2D* histDenom_p = new TH2D(histNameDenom.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nMaxBins, localPairVarsMin2, localPairVarsMax2, nMaxBins, localPairVarsMin1, localPairVarsMax1);
 
-	  
       if(eventCountOverride < 0) tree_p[0]->Project(histNameDenom.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), cutString1.c_str(), "");
       else tree_p[0]->Project(histNameDenom.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), cutString1.c_str(), "", eventCountOverride);
 	  
@@ -2717,8 +2744,8 @@ int runForestDQM(std::string inConfigName = "")
       histDenom_p->GetXaxis()->SetLabelSize(textSize);
       histDenom_p->GetYaxis()->SetLabelSize(textSize);
 
-      if(cutString1.size() != 0) histDenom_p->SetTitle((inNickNames.at(0) + ", " + cutString1).c_str());
-      else histDenom_p->SetTitle((inNickNames.at(0) + ", No cut").c_str());
+      if(cutString1.size() != 0) histDenom_p->SetTitle((inNickNames.at(0)).c_str());
+      else histDenom_p->SetTitle((inNickNames.at(0)).c_str());
       
       
       centerTitles(histDenom_p);
@@ -2740,15 +2767,17 @@ int runForestDQM(std::string inConfigName = "")
 
 	  std::string histName = fileTrees.at(0).at(tI) + "_" + pairVars1.at(pI) + "_" + pairVars2.at(pI) + "_" + cutString2 + "_" + inNickNames.at(hI) + "_h";
 	  while(histName.find("/") != std::string::npos){histName.replace(histName.find("/"), 1, "_");}
-	  TH2D* hist_p = new TH2D(histName.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nMaxBins, pairVarsMin2.at(pI), pairVarsMax2.at(pI), nMaxBins, pairVarsMin1.at(pI), pairVarsMax1.at(pI));
+	  TH2D* hist_p = new TH2D(histName.c_str(), (";" + pairVars2.at(pI) + ";"+ pairVars1.at(pI)).c_str(), nMaxBins, localPairVarsMin2, localPairVarsMax2, nMaxBins, localPairVarsMin1, localPairVarsMax1);
 	  	
 	  tree_p[hI]->ResetBranchAddresses();
 	  tree_p[hI]->SetBranchStatus("*", 0);
 	  tree_p[hI]->SetBranchStatus(pairVars1.at(pI).c_str(), 1);
 	  tree_p[hI]->SetBranchStatus(pairVars2.at(pI).c_str(), 1);
-	  
-	  if(pairCutVarsFound.at(pI)){
-	    tree_p[hI]->SetBranchStatus(pairCutVars.at(pI).c_str(), 1);
+
+	  for(unsigned int pI2 = 0; pI2 < pairCutVarsFound.at(pI).size(); ++pI2){
+	    if(pairCutVarsFound.at(pI).at(pI2)){
+	      tree_p[hI]->SetBranchStatus(pairCutVars.at(pI).at(pI2).c_str(), 1);
+	    }
 	  }
 
 	  if(eventCountOverride < 0) tree_p[hI]->Project(histName.c_str(), (pairVars1.at(pI) + ":" + pairVars2.at(pI)).c_str(), cutString1.c_str(), "");
@@ -2794,6 +2823,10 @@ int runForestDQM(std::string inConfigName = "")
 	  getMax *= 1.1;
 	  getNonZeroTH2MinHist /= 1.1;
 
+	  Bool_t doLogZ = getDoLog(getNonZeroTH2MinHist, getMax, 2);
+	  std::cout << "DO LOGZ: " << getNonZeroTH2MinHist << "-" << getMax << std::endl;
+	  std::cout << " " << doLogZ << std::endl;
+	  
 	  histDenom_p->SetMaximum(getMax);
 	  histDenom_p->SetMinimum(getNonZeroTH2MinHist);
 
@@ -2803,7 +2836,7 @@ int runForestDQM(std::string inConfigName = "")
 	  canv_p->cd();
 	  pads[0]->cd();
 	  histDenom_p->DrawCopy("COLZ");	 
-	  //	  gPad->SetLogz();
+	  if(doLogZ) gPad->SetLogz();
 	  gPad->RedrawAxis();
 	  //	  gPad->SetTicks(0, 1);
 	  gPad->SetTicks();
@@ -2829,11 +2862,11 @@ int runForestDQM(std::string inConfigName = "")
 	  canv_p->cd();
 	  pads[1]->cd();
 
-	  if(cutString1.size() != 0) hist_p->SetTitle((inNickNames.at(hI) + ", " + cutString1).c_str());
-	  else hist_p->SetTitle((inNickNames.at(hI) + ", No cut").c_str());
+	  if(cutString1.size() != 0) hist_p->SetTitle((inNickNames.at(hI)).c_str());
+	  else hist_p->SetTitle((inNickNames.at(hI)).c_str());
 
 	  hist_p->DrawCopy("COLZ");
-	  //	  gPad->SetLogz();
+	  if(doLogZ) gPad->SetLogz();
 	  gPad->RedrawAxis();
 	  //	  gPad->SetTicks(0, 1);
 	  gPad->SetTicks();
@@ -2844,12 +2877,24 @@ int runForestDQM(std::string inConfigName = "")
 	  hist_p->SetMinimum(0.0);
 	  hist_p->SetMaximum(2.0);
 	  gPad->SetLogz(0);
-	  if(cutString1.size() != 0) hist_p->SetTitle((inNickNames.at(hI) + "/" + inNickNames.at(0) + ", " + cutString1).c_str());
-	  else hist_p->SetTitle((inNickNames.at(hI) + "/" + inNickNames.at(0) + ", No cut").c_str());
+	  if(cutString1.size() != 0) hist_p->SetTitle((inNickNames.at(hI) + "/" + inNickNames.at(0)).c_str());
+	  else hist_p->SetTitle((inNickNames.at(hI) + "/" + inNickNames.at(0)).c_str());
 	  hist_p->DrawCopy("COLZ");
 	  gPad->RedrawAxis();
 	  //	  gPad->SetTicks(0, 1);
 	  gPad->SetTicks();
+
+	  //quickly drop cutString1
+	  canv_p->cd();
+	  TLatex* label_p = new TLatex();
+	  label_p->SetNDC();
+	  label_p->SetTextFont(textFont);
+	  label_p->SetTextSize(textSize);
+
+	  if(cutString1.size() == 0) label_p->DrawLatex(0.2, 0.9, "No cuts applied");
+	  else label_p->DrawLatex(0.05, 0.9, cutString1.c_str());
+	  
+	  delete label_p;
 	  
 	  std::string saveName = histName + "_" + additionalNickName;
 	  saveName = saveName + "_" + dateStr + ".png";
